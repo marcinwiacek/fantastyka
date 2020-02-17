@@ -3,25 +3,41 @@
 // (c) 02.2020 by Marcin Wiącek mwiacek.com
 // Formatted with phpcbf
 //
-// skrypt pobiera pliki z biblioteki fantastyka.pl
+// skrypt pobiera pliki z fantastyka.pl
 // i tworzy plik epub we wskazanym katalogu.
 //
 // wymagany plik cover.jpg w aktualnym katalogu
 // i komendy zip, cd i mv
 
 // ------ CONFIG -----------
-
-$startPage = 1;
-$endPage = 39;
-$downloadOnlyFew = false; // download only 5 articles when $downloadArricles=true
+$path = "/tmp";
+$set = 1; //1 = biblioteka, 2 = poczekalnia (bez tekstów w bibliotece), 3 = archiwum (bez tekstów w bibliotece)
+$log = false;
+$allPages = true;
+$allowResume = true; // when true, doesn't download pages when they exist on disk (we check for .xhtml only)
 $downloadArticles = true;
-
 // TODO: pobieranie obrazków z innych serwerów niż fantastyka.pl
 $downloadImages = false; // valid only when $downloadArticles = true; when false replacing <img> with <a>
 
-$path = "/tmp";
+$startPage = 1; // used when $allPages = false
+$endPage = 39; // used when $allPages = false
+$downloadOnlyFew = false; // download only 5 articles when $downloadArticles=true
 
 // -------------------------
+
+if ($set == 1) {
+    $word = "biblioteka";
+} else if ($set == 2) {
+    $word = "poczekalnia";
+} else if ($set == 3) {
+    $word = "archiwum";
+} else {
+    echo("Unknown set!\n");
+    exit;
+}
+if ($allPages) {
+    $startPage = 1;
+}
 
 $tocContentOpf1="";
 $tocContentOpf2="";
@@ -46,7 +62,10 @@ function findBetween($text, $start, $start2, $end)
 
 function processArticle($id,$title,$num)
 {
-    global $path, $downloadImages, $tocContentOpf1;
+    global $path, $downloadImages, $tocContentOpf1, $allowResume, $log;
+
+    if ($allowResume && file_exists("$path/OEBPS/$id.xhtml")) { return;
+    }
 
     $f=file_get_contents("https://www.fantastyka.pl/opowiadania/pokaz/".$id);
 
@@ -61,7 +80,8 @@ function processArticle($id,$title,$num)
 
     $info = findBetween($f, "<p class=\"data\">", "", "<");
 
-    file_put_contents("$path/log", "before tags\n", FILE_APPEND);
+    if ($log) { file_put_contents("$path/log", "before tags\n", FILE_APPEND);
+    }
     $tags = "";
     $f2 = $f;
     while (true) {
@@ -94,12 +114,15 @@ function processArticle($id,$title,$num)
         }
         break;
     }
-    if (strstr($f, "<img src=\"/images/zloto.png\" class=\"piorko\" />")) { $tags = $tags.", <b>PIÓRKO</b>";
+    if (strstr($f, "<img src=\"/images/srebro.png\" class=\"piorko\" />")) { $tags = $tags.", <b>Srebrne PIÓRKO</b>";
+    }
+    if (strstr($f, "<img src=\"/images/zloto.png\" class=\"piorko\" />")) { $tags = $tags.", <b>ZŁOTE PIÓRKO</b>";
     }
     if ($tags!="") { $tags="Tagi: $tags<br>\n";
     }
     $tags = str_replace("&", "&amp;", $tags);
-    file_put_contents("$path/log", "after tags\n", FILE_APPEND);
+    if ($log) { file_put_contents("$path/log", "after tags\n", FILE_APPEND);
+    }
 
     $txt = findBetween(
         $f, "<section class=\"opko no-headline\">", "<article>", "</article>"
@@ -114,7 +137,8 @@ function processArticle($id,$title,$num)
             $f2 = strstr($f2, $t);
             $f2 = substr($f2, 5);
             $url = strstr($f2, "\"", true);
-            file_put_contents("$path/log", "image $url\n", FILE_APPEND);
+            if ($log) {            file_put_contents("$path/log", "image $url\n", FILE_APPEND);
+            }
             $f3=file_get_contents(str_replace(" ", "%20", $url));
             $tmp=explode("/", "$url");
             $localfile = end($tmp);
@@ -161,33 +185,40 @@ function processArticle($id,$title,$num)
     $txt = str_replace(" <p ", "<p ", $txt);
     $txt = str_replace("<p /> <hr />", "<hr />", $txt);
     $txt = str_replace("&oacute;", "ó", $txt);
-    $txt = str_replace("\n\t<span class=\"koniec\">Koniec</span>" ,"",$txt);
+    $txt = str_replace("\n\t<span class=\"koniec\">Koniec</span>", "", $txt);
     $txt = str_replace("Tagi: , ", "Tagi: ", $txt);
 
     file_put_contents("$path/OEBPS/$id.xhtml", $txt);
 }
 
-//if (file_exists("$path/my_epub")) {
-//    echo("Directory $path/my_epub exists! Delete it first!\n");
-//    exit;
-//}
-mkdir("$path/my_epub", 0700);
-$path=$path."/my_epub";
+$path = $path."/".$word;
+
+if (!$allowResume && file_exists("$path")) {
+    echo("Directory $path exists! Delete it first!\n");
+    exit;
+}
+mkdir("$path", 0700);
 
 mkdir("$path/OEBPS", 0700);
 mkdir("$path/META-INF", 0700);
 
 $num=1;
 $pagenum=$startPage;
-file_put_contents("$path/log", "start");
+if ($log) { file_put_contents("$path/log", "start");
+}
 while (true) {
     if ($pagenum==1) {
-        $f=file_get_contents("https://www.fantastyka.pl/opowiadania/biblioteka");
+        $f=file_get_contents("https://www.fantastyka.pl/opowiadania/$word");
     } else {
-        $f=file_get_contents("https://www.fantastyka.pl/opowiadania/biblioteka/w/w/w/0/d/$pagenum");
+        if ($set == 3) {
+                $f=file_get_contents("https://www.fantastyka.pl/opowiadania/$word/d/$pagenum");
+        } else {
+                $f=file_get_contents("https://www.fantastyka.pl/opowiadania/$word/w/w/w/0/d/$pagenum");
+        }
     }
-    echo "reading page $pagenum (range $startPage - $endPage)\n";
-    file_put_contents("$path/log", "reading page $pagenum\n", FILE_APPEND);
+    echo "reading page $pagenum from $word\n";
+    if ($log) {    file_put_contents("$path/log", "reading page $pagenum from $word\n", FILE_APPEND);
+    }
     $f2 = $f;
     while (true) {
         $t = "><a href=\"/opowiadania/pokaz/";
@@ -198,36 +229,54 @@ while (true) {
 
         if ($id != "10823" && $id != "8313") {
             echo "id is ".$id;
-            file_put_contents("$path/log", "id is $id\n", FILE_APPEND);
+            if ($log) {            file_put_contents("$path/log", "id is $id\n", FILE_APPEND);
+            }
+
+            if ($set == 3) {
+                $params = strstr($f2, "<div class=\"clear linia\"></div>", true);
+            }
 
             $f2 = findNext($f2, ">");
-            $title = strstr($f2, "<", true);
-            $title = str_replace("& ", "&amp; ", $title);
+            if ($id == "56842934") {
+                $title="DZIEŃ (bez) PRĄDU! - Czuby Aka kontra Czterech Jeźdźców Apo Kalipsy";
+            } else {
+                $title = strstr($f2, "<", true);
+                $title = str_replace("& ", "&amp; ", $title);
+            }
+
             echo " title is ".$title."\n";
-            file_put_contents("$path/log", "title is $title\n", FILE_APPEND);
-            if ($downloadArticles) { processArticle($id, $title, $num);
+            if ($log) {            file_put_contents("$path/log", "title is $title\n", FILE_APPEND);
             }
 
-            $tocContentOpf1=$tocContentOpf1."<item id=\"".$id."_xhtml\" media-type=\"application/xhtml+xml\" href=\"$id.xhtml\" />\n";
+            if ($set == 3 && strstr($params, "<div class=\"punkty\" title=\"opowiadanie w bibliotece\">OK<div>bib</div></div>")) {
+                echo "  library\n";
+                if ($log) {            file_put_contents("$path/log", "library\n", FILE_APPEND);
+                }
+            } else {
+                if ($downloadArticles) { processArticle($id, $title, $num);
+                }
 
-            $tocContentOpf2=$tocContentOpf2."<itemref idref=\"".$id."_xhtml\"/>\n";
+                $tocContentOpf1=$tocContentOpf1."<item id=\"".$id."_xhtml\" media-type=\"application/xhtml+xml\" href=\"$id.xhtml\" />\n";
 
-            if ($tocContentOpf3 == "") {
-                $tocContentOpf3 = "<reference href=\"$id.xhtml\" type=\"text\" title=\"Tekst\"/>\n";
+                $tocContentOpf2=$tocContentOpf2."<itemref idref=\"".$id."_xhtml\"/>\n";
+
+                if ($tocContentOpf3 == "") {
+                    $tocContentOpf3 = "<reference href=\"$id.xhtml\" type=\"text\" title=\"Tekst\"/>\n";
+                }
+
+                $tocTocNCX=$tocTocNCX."<navPoint id=\"index_$num\" playOrder=\"$num\">\n".
+                "<navLabel>\n".
+                "<text>$title</text>\n".
+                "</navLabel>\n".
+                "<content src=\"$id.xhtml\"/>\n".
+                "</navPoint>\n";
+
+                $tocTocXHTML=$tocTocXHTML."<li>\n".
+                "<a href=\"$id.xhtml\">$title</a>\n".
+                "</li>\n";
+
+                $num++;
             }
-
-            $tocTocNCX=$tocTocNCX."<navPoint id=\"index_$num\" playOrder=\"$num\">\n".
-            "<navLabel>\n".
-            "<text>$title</text>\n".
-            "</navLabel>\n".
-            "<content src=\"$id.xhtml\"/>\n".
-            "</navPoint>\n";
-
-            $tocTocXHTML=$tocTocXHTML."<li>\n".
-            "<a href=\"$id.xhtml\">$title</a>\n".
-            "</li>\n";
-
-            $num++;
         }
 
         if ($downloadOnlyFew && $num==5) { break;
@@ -236,23 +285,15 @@ while (true) {
     if ($downloadOnlyFew && $num==5) { break;
     }
 
-    //    każda strona zawiera tę część
-    //    if (!strstr($f," title=\"następna strona\"><span class=\"aquo\">&raquo;</span></a>")) break;
-
-    if ($pagenum==$endPage) { break;
+    if ($allPages) {
+        if (strstr($f, "/$pagenum\" title=\"koniec\">")) { break;
+        }
+    } else {
+        if ($pagenum==$endPage) { break;
+        }
     }
     $pagenum++;
 }
-
-/*
-$cdir = scandir("$path/OEBPS1");
-foreach ($cdir as $key => $value) {
-    if (!in_array($value,array(".","..")) && !is_dir($dir.DIRECTORY_SEPARATOR.$value)) {
-    $localfile = $value;
-        $tocContentOpf1=$tocContentOpf1."<item id=\"$localfile\" media-type=\"image/jpeg\" href=\"$localfile\" properties=\"image\" />\n";
-    }
-}
-*/
 
 file_put_contents("$path/mimetype", "application/epub+zip");
 
@@ -265,7 +306,7 @@ $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
 
 file_put_contents("$path/META-INF/container.xml", $txt);
 
-file_put_contents("$path/OEBPS/style.css", ".hyphenate {text-align:justify}");
+file_put_contents("$path/OEBPS/style.css", "body {text-align:justify}");
 
 $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
   "<ncx xmlns=\"http://www.daisy.org/z3986/2005/ncx/\"\n".
@@ -280,7 +321,7 @@ $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
       "<meta name=\"dtb:maxPageNumber\" content=\"0\"/>\n".
   "</head>\n".
   "<docTitle>\n".
-      "<text>Biblioteka z fantastyka.pl</text>\n".
+      "<text>".ucfirst($word)." z fantastyka.pl (".date('dmy').")</text>\n".
   "</docTitle>\n".
 "<navMap>\n".
 $tocTocNCX.
@@ -295,7 +336,7 @@ $txt="<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
       "xmlns:epub=\"http://www.idpf.org/2007/ops\"\n".
       "xml:lang=\"pl\" lang=\"pl\">\n".
     "<head>\n".
-        "<title>Biblioteka z fantastyka.pl</title>\n".
+      "<title>".ucfirst($word)." z fantastyka.pl (".date('dmy').")</title>\n".
         "<link rel=\"stylesheet\" href=\"style.css\" type=\"text/css\" />\n".
     "</head>\n".
     "<body xml:lang=\"pl\" lang=\"pl\">\n".
@@ -323,9 +364,9 @@ $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
         "<dc:identifier id=\"bookid\">urn:uuid:e5953946-ea06-4599-9a53-f5c652b89f5c</dc:identifier>\n".
         "<dc:language>pl-PL</dc:language>\n".
         "<meta name=\"generator\" content=\"Skrypt z mwiacek.com\"/>\n".
-        "<dc:title>Biblioteka z fantastyka.pl</dc:title>\n".
+        "<dc:title>".ucfirst($word)." z fantastyka.pl (".date('dmy').")</dc:title>\n".
         "<dc:description>\n".
-        "Opowiadania z biblioteki z fantastyka.pl przetworzone skryptem z mwiacek.com\n".
+        "Opowiadania z biblioteki z fantastyka.pl przetworzone skryptem z mwiacek.com. Wersja z dnia ".date('dmy').".\n".
         "</dc:description>\n".
         "<dc:creator id=\"creator-0\">A.zbiorowy+skrypt z mwiacek.com</dc:creator>\n".
         "<meta refines=\"#creator-0\" property=\"role\" scheme=\"marc:relators\">aut</meta>\n".
@@ -361,7 +402,7 @@ $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
       "xmlns:epub=\"http://www.idpf.org/2007/ops\"\n".
       "xml:lang=\"pl\" lang=\"pl\">\n".
     "<head>\n".
-        "<title>Biblioteka z fantastyka.pl</title>\n".
+        "<title>".ucfirst($word)." z fantastyka.pl (".date('dmy').")</title>\n".
         "<link rel=\"stylesheet\" href=\"style.css\" type=\"text/css\" />\n".
     "</head>\n".
     "<body xml:lang=\"pl\" lang=\"pl\">\n".
@@ -374,9 +415,21 @@ $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
 file_put_contents("$path/OEBPS/cover-page.xhtml", $txt);
 
 exec("cp cover.jpg $path/OEBPS/cover.jpg");
-exec("cd $path && zip -rv my_file.zip OEBPS META-INF mimetype");
-exec("mv $path/my_file.zip $path/my_file.epub");
+exec("cd $path && zip -rv $word.zip OEBPS META-INF mimetype");
+exec("mv $path/$word.zip $path/$word.epub");
 
 echo ($num-1)." texts processed\n";
+
+if ($allowResume) {
+    foreach (scandir("$path/OEBPS") as $key => $filename) {
+        if (!in_array($filename, array(".","..")) && !is_dir("$path/OEBPS/$filename")
+            && strstr($filename, ".xhtml") && $filename!="cover-page.xhtml" && $filename!="toc.xhtml"
+        ) {
+            if (!strstr($tocContentOpf1, "media-type=\"application/xhtml+xml\" href=\"$filename\" />")) {
+                echo "$filename is not mentioned in index!\n";
+            }
+        }
+    }
+}
 
 ?>
