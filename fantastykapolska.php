@@ -8,8 +8,9 @@
 // credentials are OK
 
 $download = true;
-$merge = false; // not fully complete - merging short texts into one EPUB
-$endPage = 5; // how many pages are on www site
+$merge = true; // merging short texts into one EPUB; some chapters
+               // not full compatible with csBooks
+$endPage = 5;  // how many pages are on www site
 $path="/tmp/books"; // output folder
 
 function findNext($text, $start)
@@ -121,7 +122,7 @@ if ($merge) {
     exec("mkdir $path/output2");
     exec("mkdir $path/tmp");
 
-    function scanXHTMLFiles($dir)
+    function scanAllHTMLFiles($dir)
     {
         $result = [];
         foreach(scandir($dir) as $key => $filename) {
@@ -129,10 +130,10 @@ if ($merge) {
             }
             $fullName = "$dir/$filename";
             if (is_dir($fullName)) {
-                foreach (scanXHTMLFiles($fullName) as $key=>$filename2) {
+                foreach (scanAllHTMLFiles($fullName) as $key=>$filename2) {
                     $result[] = "$filename/$filename2";
                 }
-            } else if (strstr($filename, ".xhtml") || $filename=="content.opf") {
+            } else if (strstr($filename, ".xhtml") || strstr($filename, ".html") || $filename=="content.opf") {
                 $result[] = $filename;
             }
         }
@@ -141,7 +142,7 @@ if ($merge) {
 
     $num=1;
     foreach (scandir("$path") as $key => $value) {
-        if (!in_array($value, array(".","..")) && !is_dir("$path/$value")) {
+        if (!in_array($value, array(".","..")) && !is_dir("$path/$value") && $value!="tmp") {
             echo "Processing $value\n";
             exec("mkdir $path/tmp");
             exec("cd $path/tmp && unzip $path/$value");
@@ -149,46 +150,60 @@ if ($merge) {
             $size=0;
             $process=true;
             $OPFname="";
-            foreach(scanXHTMLFiles("$path/tmp") as $key=>$filename) {
+            foreach(scanAllHTMLFiles("$path/tmp") as $key=>$filename) {
                 if (strstr($filename, "content.opf")) {
                     $OPFname = $filename;
                     continue;
                 }
-                if (filesize("$path/tmp/$filename")>$size) {
-                    $name=$filename;
-                    $size = filesize("$path/tmp/$filename");
-                } else if (filesize("$path/tmp/$filename")>4000) {
+                if (filesize("$path/tmp/$filename")>4000 && $size>4000) {
                     echo ("Potential next chapter!\n");
                     $process=false;
                     break;
+                }
+                if (filesize("$path/tmp/$filename")>$size) {
+                    $name=$filename;
+                    $size = filesize("$path/tmp/$filename");
                 }
             }
             if ($process && $OPFname!="") {
                 $OPF = file_get_contents("$path/tmp/$OPFname");
                 $text = file_get_contents("$path/tmp/$name");
-                $author = findBetween($OPF, "<dc:creator", "<", "</dc:creator>");
+                $author = findBetween($OPF, "<dc:creator", ">", "</dc:creator>");
                 $title = findBetween($OPF, "<dc:title>", "", "</dc:title>");
 
-                $tocContentOpf1=$tocContentOpf1."<item id=\"".$value."_xhtml\" media-type=\"application/xhtml+xml\" href=\"$value.xhtml\" />\n";
+                $value2 = explode('.', $value);
+                array_pop($value2);
+                $value2 = urldecode(implode('.', $value2));
 
-                $tocContentOpf2=$tocContentOpf2."<itemref idref=\"".$value."_xhtml\"/>\n";
+                $tocContentOpf1=$tocContentOpf1."<item id=\"".$value2."_xhtml\" media-type=\"application/xhtml+xml\" href=\"$value2.xhtml\" />\n";
+
+                $tocContentOpf2=$tocContentOpf2."<itemref idref=\"".$value2."_xhtml\"/>\n";
 
                 if ($tocContentOpf3 == "") {
-                    $tocContentOpf3 = "<reference href=\"$value.xhtml\" type=\"text\" title=\"Tekst\"/>\n";
+                    $tocContentOpf3 = "<reference href=\"$value2.xhtml\" type=\"text\" title=\"Tekst\"/>\n";
                 }
 
                 $tocTocNCX=$tocTocNCX."<navPoint id=\"index_$num\" playOrder=\"$num\">\n".
                 "<navLabel>\n".
                 "<text>$title</text>\n".
                 "</navLabel>\n".
-                "<content src=\"$value.xhtml\"/>\n".
+                "<content src=\"$value2.xhtml\"/>\n".
                 "</navPoint>\n";
 
                 $tocTocXHTML=$tocTocXHTML."<li>\n".
-                "<a href=\"$value.xhtml\">$title</a>\n".
+                "<a href=\"$value2.xhtml\">$title</a>\n".
                 "</li>\n";
 
-                file_put_contents("$path/output/OEBPS/$value.xhtml", $text);
+                $position = strpos($text, "<body");
+                $position = strpos($text, ">", $position+1);
+                $text = substr_replace($text, "<center><h2>$title<br />$author</h2></center>", $position+1, 0);
+
+                if (strstr($text, "<li class=\"calibre1\">")) {
+                    $text = str_replace("<li class=\"calibre1\">", "", $text);
+                    $text = str_replace("</li>", "", $text);
+                }
+
+                file_put_contents("$path/output/OEBPS/$value2.xhtml", $text);
                 $num++;
             } else {
                 exec("cp $path/$value $path/output2/$value");
