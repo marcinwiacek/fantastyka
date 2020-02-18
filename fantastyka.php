@@ -241,7 +241,7 @@ while (true) {
                 $title="DZIEŃ (bez) PRĄDU! - Czuby Aka kontra Czterech Jeźdźców Apo Kalipsy";
             } else {
                 $title = strstr($f2, "<", true);
-                $title = str_replace("& ", "&amp; ", $title);
+                $title = preg_replace('/(&(?!#|amp;))/', "&amp;", $title);
             }
 
             echo " title is ".$title."\n";
@@ -414,12 +414,6 @@ $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
 
 file_put_contents("$path/OEBPS/cover-page.xhtml", $txt);
 
-exec("cp cover$set.jpg $path/OEBPS/cover$set.jpg");
-exec("cd $path && zip -rv $word.zip OEBPS META-INF mimetype");
-exec("mv $path/$word.zip $path/$word.epub");
-
-echo ($num-1)." texts processed\n";
-
 if ($allowResume) {
     foreach (scandir("$path/OEBPS") as $key => $filename) {
         if (!in_array($filename, array(".","..")) && !is_dir("$path/OEBPS/$filename")
@@ -432,5 +426,11 @@ if ($allowResume) {
         }
     }
 }
+
+exec("cp cover$set.jpg $path/OEBPS/cover$set.jpg");
+exec("cd $path && zip -rv $word.zip OEBPS META-INF mimetype");
+exec("mv $path/$word.zip $path/$word.epub");
+
+echo ($num-1)." texts processed\n";
 
 ?>

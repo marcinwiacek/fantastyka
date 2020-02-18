@@ -9,7 +9,7 @@
 
 $download = true;
 $merge = true; // merging short texts into one EPUB; some chapters
-               // not full compatible with csBooks
+               // not full compatible for example with csBooks
 $endPage = 5;  // how many pages are on www site
 $path="/tmp/books"; // output folder
 
