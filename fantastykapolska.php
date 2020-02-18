@@ -278,7 +278,7 @@ if ($merge) {
     "</metadata>\n".
     "<manifest>\n".
     "<item id=\"style_css\" media-type=\"text/css\" href=\"style.css\" />\n".
-        "<item id=\"cover\" media-type=\"image/jpeg\" href=\"cover.jpg\" properties=\"cover-image\" />\n".
+        "<item id=\"cover\" media-type=\"image/jpeg\" href=\"cover4.jpg\" properties=\"cover-image\" />\n".
         "<item id=\"cover-page_xhtml\" media-type=\"application/xhtml+xml\" href=\"cover-page.xhtml\" />\n".
         "<item id=\"toc_xhtml\" media-type=\"application/xhtml+xml\" href=\"toc.xhtml\" properties=\"nav\" />\n".
     $tocContentOpf1.
@@ -309,14 +309,14 @@ if ($merge) {
     "</head>\n".
     "<body xml:lang=\"pl\" lang=\"pl\">\n".
     "<div>\n".
-      "<img src=\"cover.jpg\"/>\n".
+      "<img src=\"cover4.jpg\"/>\n".
     "</div>\n".
     "</body>\n".
     "</html>";
 
     file_put_contents("$path/output/OEBPS/cover-page.xhtml", $txt);
 
-    exec("cp cover.jpg $path/output/OEBPS/cover.jpg");
+    exec("cp cover4.jpg $path/output/OEBPS/cover4.jpg");
     exec("cd $path/output && zip -rv fpolska.zip OEBPS META-INF mimetype");
     exec("mv $path/output/fpolska.zip $path/output2/fpolska.epub");
 

@@ -376,7 +376,7 @@ $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
     "</metadata>\n".
     "<manifest>\n".
   "<item id=\"style_css\" media-type=\"text/css\" href=\"style.css\" />\n".
-        "<item id=\"cover\" media-type=\"image/jpeg\" href=\"cover.jpg\" properties=\"cover-image\" />\n".
+        "<item id=\"cover\" media-type=\"image/jpeg\" href=\"cover$set.jpg\" properties=\"cover-image\" />\n".
         "<item id=\"cover-page_xhtml\" media-type=\"application/xhtml+xml\" href=\"cover-page.xhtml\" />\n".
         "<item id=\"toc_xhtml\" media-type=\"application/xhtml+xml\" href=\"toc.xhtml\" properties=\"nav\" />\n".
 $tocContentOpf1.
@@ -407,14 +407,14 @@ $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
     "</head>\n".
     "<body xml:lang=\"pl\" lang=\"pl\">\n".
     "<div>\n".
-      "<img src=\"cover.jpg\"/>\n".
+      "<img src=\"cover$set.jpg\"/>\n".
     "</div>\n".
     "</body>\n".
 "</html>";
 
 file_put_contents("$path/OEBPS/cover-page.xhtml", $txt);
 
-exec("cp cover.jpg $path/OEBPS/cover.jpg");
+exec("cp cover$set.jpg $path/OEBPS/cover$set.jpg");
 exec("cd $path && zip -rv $word.zip OEBPS META-INF mimetype");
 exec("mv $path/$word.zip $path/$word.epub");
 
