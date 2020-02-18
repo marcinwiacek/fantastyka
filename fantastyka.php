@@ -426,7 +426,8 @@ if ($allowResume) {
             && strstr($filename, ".xhtml") && $filename!="cover-page.xhtml" && $filename!="toc.xhtml"
         ) {
             if (!strstr($tocContentOpf1, "media-type=\"application/xhtml+xml\" href=\"$filename\" />")) {
-                echo "$filename is not mentioned in index!\n";
+                echo "$filename is not mentioned in index, removing!\n";
+                exec("rm $path/OEBPS/$filename");
             }
         }
     }
