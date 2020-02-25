@@ -16,6 +16,8 @@ $log = false;
 $allPages = true;
 $allowResume = true; // when true, doesn't download pages when they exist on disk (we check for .xhtml only)
 $downloadArticles = true;
+$userNumber = ""; // profile number for user; empty means all users
+
 // TODO: pobieranie obrazków z innych serwerów niż fantastyka.pl
 $downloadImages = false; // valid only when $downloadArticles = true; when false replacing <img> with <a>
 
@@ -221,6 +223,14 @@ while (true) {
     }
     $f2 = $f;
     while (true) {
+        $t = "<div class=\"autor\"><a href=\"/profil/";
+        if (!strstr($f2, $t)) { break;
+        }
+        $f2 = findNext($f2, $t);
+        $userId = strstr($f2, "\"", true);
+        if ($userNumber!="" && strcmp($userNumber, $userId)) { continue;
+        }
+
         $t = "><a href=\"/opowiadania/pokaz/";
         if (!strstr($f2, $t)) { break;
         }
@@ -229,6 +239,7 @@ while (true) {
 
         if ($id != "10823" && $id != "8313") {
             echo "id is ".$id;
+            //            echo "user id is $userId id is ".$id;
             if ($log) {            file_put_contents("$path/log", "id is $id\n", FILE_APPEND);
             }
 
