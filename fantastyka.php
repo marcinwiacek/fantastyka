@@ -12,18 +12,18 @@
 // ------ CONFIG -----------
 $path = "/tmp";
 $set = 1; //1 = biblioteka, 2 = poczekalnia (bez tekstów w bibliotece), 3 = archiwum (bez tekstów w bibliotece)
+        //4 = kolejka (wymaga parametrów logowania; niesprawdzone)
 $log = false;
 $allPages = true;
 $allowResume = true; // when true, doesn't download pages when they exist on disk (we check for .xhtml only)
 $downloadArticles = true;
 $userNumber = ""; // profile number for user; empty means all users
-
-// TODO: pobieranie obrazków z innych serwerów niż fantastyka.pl
 $downloadImages = false; // valid only when $downloadArticles = true; when false replacing <img> with <a>
+                            // TODO: pobieranie obrazków z innych serwerów niż fantastyka.pl
 
 $startPage = 1; // used when $allPages = false
 $endPage = 39; // used when $allPages = false
-$downloadOnlyFew = false; // download only 5 articles when $downloadArticles=true
+$downloadOnlyFew = false; // download only 5 articles when $downloadArticles=true; useful for script testing
 
 // -------------------------
 
@@ -33,6 +33,75 @@ if ($set == 1) {
     $word = "poczekalnia";
 } else if ($set == 3) {
     $word = "archiwum";
+} else if ($set == 4) {
+    $word = "kolejka";
+
+    echo "Please enter user: ";
+    $handle = fopen("php://stdin", "r");
+    $user = trim(fgets($handle));
+    fclose($handle);
+
+    echo "Please enter password: ";
+    $handle = fopen("php://stdin", "r");
+    $password = trim(fgets($handle));
+    $password = urlencode($password);
+    fclose($handle);
+
+    $file = file_get_contents("https://www.fantastyka.pl/");
+    //    var_dump($http_response_header);
+    $form_build_id=findBetween($file, "name=\"_csrf_token\" value=\"", "", "\"");
+
+    $cookie = "";
+    foreach ($http_response_header as &$value) {
+        if (strpos($value, "Set-Cookie: ")===false) {
+            continue;
+        }
+        $cookie = findBetween($value, "Set-Cookie: ", "", "; ");
+        break;
+    }
+
+    $options = array(
+    'http'=>array(
+        'method'=>"POST",
+            'header'=>"Content-Type: application/x-www-form-urlencoded\r\n".
+                "Cookie: $cookie\r\n",
+            'content'=>"_csrf_token=$form_build_id&".
+            "_remember_me=on&".
+                "_username=$user&".
+                "_password=$password&".
+                "_submit="
+        )
+    );
+
+    $context = stream_context_create($options);
+    $file = file_get_contents("https://www.fantastyka.pl/login_check", false, $context);
+    //    var_dump($http_response_header);
+
+    $cookie = "";
+    $second = false;
+    foreach ($http_response_header as &$value) {
+        if (strpos($value, "Set-Cookie: ")===false) {
+            continue;
+        }
+        if ($cookie != "") {
+            $cookie = $cookie."; ";
+            $second = true;
+        }
+        $cookie = $cookie.findBetween($value, "Set-Cookie: ", "", "; ");
+    }
+
+    if (!$second) {
+        echo "Sorry Gregory, wrong credentials\n";
+        exit;
+    }
+
+    $options = array(
+    'http'=>array(
+            'method'=>"GET",
+            'header'=>"Cookie: $cookie\r\n"
+    )
+    );
+    $context = stream_context_create($options);
 } else {
     echo("Unknown set!\n");
     exit;
@@ -64,12 +133,16 @@ function findBetween($text, $start, $start2, $end)
 
 function processArticle($id,$title,$num)
 {
-    global $path, $downloadImages, $tocContentOpf1, $allowResume, $log;
+    global $path, $downloadImages, $tocContentOpf1, $allowResume, $log, $set, $context;
 
     if ($allowResume && file_exists("$path/OEBPS/$id.xhtml")) { return;
     }
 
-    $f=file_get_contents("https://www.fantastyka.pl/opowiadania/pokaz/".$id);
+    if ($set == 4) {
+        $f=file_get_contents("https://www.fantastyka.pl/opowiadania/pokaz/".$id, false, $context);
+    } else {
+        $f=file_get_contents("https://www.fantastyka.pl/opowiadania/pokaz/".$id);
+    }
 
     $descriptionOrHr = "<hr>".trim(findBetween($f, "<div class=\"clear linia\" style=\"margin-top: 1px;\"></div>", "", "</div>"));
     if ($descriptionOrHr!="<hr>") { $descriptionOrHr=$descriptionOrHr."<hr>";
@@ -209,13 +282,22 @@ $pagenum=$startPage;
 if ($log) { file_put_contents("$path/log", "start");
 }
 while (true) {
-    if ($pagenum==1) {
-        $f=file_get_contents("https://www.fantastyka.pl/opowiadania/$word");
-    } else {
-        if ($set == 3) {
-                $f=file_get_contents("https://www.fantastyka.pl/opowiadania/$word/d/$pagenum");
+    if ($set == 4) {
+        if ($pagenum==1) {
+            $f=file_get_contents("https://www.fantastyka.pl/opowiadania/wszystkie/w/w/$word/0/d", false, $context);
         } else {
+            //wild guess
+            $f=file_get_contents("https://www.fantastyka.pl/opowiadania/wszystkie/w/w/$word/0/d/$pagenum", false, $context);
+        }
+    } else {
+        if ($pagenum==1) {
+            $f=file_get_contents("https://www.fantastyka.pl/opowiadania/$word");
+        } else {
+            if ($set == 3) {
+                $f=file_get_contents("https://www.fantastyka.pl/opowiadania/$word/d/$pagenum");
+            } else {
                 $f=file_get_contents("https://www.fantastyka.pl/opowiadania/$word/w/w/w/0/d/$pagenum");
+            }
         }
     }
     echo "reading page $pagenum from $word\n";
@@ -297,7 +379,9 @@ while (true) {
     }
 
     if ($allPages) {
-        if (strstr($f, "/$pagenum\" title=\"koniec\">")) { break;
+        if (strstr($f, "/$pagenum\" title=\"koniec\">") 
+            || strstr($f, "$word/".($pagenum-1)."/d\" title=\"koniec\">")
+        ) { break;
         }
     } else {
         if ($pagenum==$endPage) { break;
@@ -441,6 +525,11 @@ if ($allowResume) {
 exec("cp cover$set.jpg $path/OEBPS/cover$set.jpg");
 exec("cd $path && zip -rv $word.zip OEBPS META-INF mimetype");
 exec("mv $path/$word.zip $path/$word.epub");
+
+if ($set == 4) {
+    file_get_contents("https://www.fantastyka.pl/logout", false, $context);
+    //    var_dump($http_response_header);
+}
 
 echo ($num-1)." texts processed\n";
 
