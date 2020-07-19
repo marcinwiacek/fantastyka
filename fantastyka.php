@@ -1,6 +1,6 @@
 <?php
 
-// (c) 02.2020 by Marcin Wiącek mwiacek.com
+// (c) 02.2020, 07.2020 by Marcin Wiącek mwiacek.com
 // Formatted with phpcbf
 //
 // skrypt pobiera pliki z fantastyka.pl
@@ -131,11 +131,38 @@ function findBetween($text, $start, $start2, $end)
     return strstr($f2, $end, true);
 }
 
-function processArticle($id,$title,$num)
+function addAuthorInfo($author, $authorID, $articleID, $articleName)
+{
+    global $path;
+
+    if (!file_exists("$path/OEBPS/authors/$authorID.xhtml")) {
+        $txt="<?xml version=\"1.0\" encoding=\"UTF-8\"?>".
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n".
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n".
+        "xmlns:epub=\"http://www.idpf.org/2007/ops\"\n".
+        "xml:lang=\"pl\" lang=\"pl\">\n".
+        "<head>\n".
+        "<link rel=\"stylesheet\" href=\"../style.css\" type=\"text/css\" />\n".
+        "<meta charset=\"utf-8\" /></head><body xml:lang=\"pl\" lang=\"pl\"><h1>Autor $author</h1><ul>\n";
+        file_put_contents("$path/OEBPS/authors/$authorID.xhtml", $txt);
+    }
+    file_put_contents("$path/OEBPS/authors/$authorID.xhtml", "<li><a href=\"../$articleID.xhtml\">$articleName</a></li>\n", FILE_APPEND);
+}
+
+function processArticle($id,$title,$num, $author0, $authorID0)
 {
     global $path, $downloadImages, $tocContentOpf1, $allowResume, $log, $set, $context;
 
-    if ($allowResume && file_exists("$path/OEBPS/$id.xhtml")) { return;
+    if ($allowResume && file_exists("$path/OEBPS/$id.xhtml")) { 
+        $f=file_get_contents("$path/OEBPS/$id.xhtml", false, $context);
+        if (strstr($f, "<body xml:lang=\"pl\" lang=\"pl\">\nAutor: $author0<br />")) {
+            $f = str_replace(
+                "<body xml:lang=\"pl\" lang=\"pl\">\nAutor: $author0<br />", 
+                "<body xml:lang=\"pl\" lang=\"pl\">\nAutor: <a href=\"authors/$authorID0.xhtml\">$author0</a><br />", $f
+            );
+            file_put_contents("$path/OEBPS/$id.xhtml", $f);
+        }
+        return;
     }
 
     if ($set == 4) {
@@ -152,6 +179,7 @@ function processArticle($id,$title,$num)
         $f, "<p class=\"naglowek-kom\"><a class=\"login\" href=\"/profil/", ">", "<"
     );
     $author = str_replace("&", "&amp;", $author);
+    $authorID = findBetween($f, "<p class=\"naglowek-kom\"><a class=\"login\" href=\"/profil/", "", "\"");
 
     $info = findBetween($f, "<p class=\"data\">", "", "<");
 
@@ -227,6 +255,7 @@ function processArticle($id,$title,$num)
         $txt = preg_replace('/src=\"(.*?)\"/', "href=\"\\1\"", $txt);
     }
 
+
     $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
     "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n".
     "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n".
@@ -237,7 +266,7 @@ function processArticle($id,$title,$num)
     "<link rel=\"stylesheet\" href=\"style.css\" type=\"text/css\" />\n".
     "</head>\n".
     "<body xml:lang=\"pl\" lang=\"pl\">\n".
-    "Autor: $author<br>\n".
+    "Autor: <a href=\"authors/$authorID.xhtml\">$author</a><br>\n".
     "$tags".
     "Info: $info\n".
     "$descriptionOrHr\n".
@@ -276,6 +305,8 @@ mkdir("$path", 0700);
 
 mkdir("$path/OEBPS", 0700);
 mkdir("$path/META-INF", 0700);
+exec("rm -r $path/OEBPS/authors");
+mkdir("$path/OEBPS/authors", 0700);
 
 $num=1;
 $pagenum=$startPage;
@@ -312,6 +343,9 @@ while (true) {
         $userId = strstr($f2, "\"", true);
         if ($userNumber!="" && strcmp($userNumber, $userId)) { continue;
         }
+        $user = findNext($f2, "\">");
+        $user = strstr($user, ":</a>", true);
+        $user = str_replace("&nbsp;", " ", $user);
 
         $t = "><a href=\"/opowiadania/pokaz/";
         if (!strstr($f2, $t)) { break;
@@ -337,7 +371,9 @@ while (true) {
                 $title = preg_replace('/(&(?!#|amp;))/', "&amp;", $title);
             }
 
-            echo " title is ".$title."\n";
+            addAuthorInfo($user, $userId, $id, $title);
+
+            echo " autor '$user' title ".$title."\n";
             if ($log) {            file_put_contents("$path/log", "title is $title\n", FILE_APPEND);
             }
 
@@ -346,7 +382,7 @@ while (true) {
                 if ($log) {            file_put_contents("$path/log", "library\n", FILE_APPEND);
                 }
             } else {
-                if ($downloadArticles) { processArticle($id, $title, $num);
+                if ($downloadArticles) { processArticle($id, $title, $num, $user, $userId);
                 }
 
                 $tocContentOpf1=$tocContentOpf1."<item id=\"".$id."_xhtml\" media-type=\"application/xhtml+xml\" href=\"$id.xhtml\" />\n";
@@ -448,6 +484,15 @@ $tocTocXHTML.
 
 file_put_contents("$path/OEBPS/toc.xhtml", $txt);
 
+foreach (scandir("$path/OEBPS/authors") as $key => $filename) {
+    if (!in_array($filename, array(".","..")) && !is_dir("$path/OEBPS/authors/$filename")
+        && strstr($filename, ".xhtml")
+    ) {
+        $tocContentOpf1=$tocContentOpf1."<item id=\"author_".$filename."\" media-type=\"application/xhtml+xml\" href=\"authors/$filename\" />\n";
+        $tocContentOpf2=$tocContentOpf2."<itemref idref=\"author_".$filename."\"/>\n";
+    }
+}
+
 $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
     "<package xmlns=\"http://www.idpf.org/2007/opf\"\n".
          "xmlns:opf=\"http://www.idpf.org/2007/opf\"\n".
@@ -516,9 +561,17 @@ if ($allowResume) {
         ) {
             if (!strstr($tocContentOpf1, "media-type=\"application/xhtml+xml\" href=\"$filename\" />")) {
                 echo "$filename is not mentioned in index, removing!\n";
-                exec("rm $path/OEBPS/$filename");
+                //                exec("rm $path/OEBPS/$filename");
             }
         }
+    }
+}
+
+foreach (scandir("$path/OEBPS/authors") as $key => $filename) {
+    if (!in_array($filename, array(".","..")) && !is_dir("$path/OEBPS/authors/$filename")
+        && strstr($filename, ".xhtml")
+    ) {
+        file_put_contents("$path/OEBPS/authors/$filename", "</ul></body></html>", FILE_APPEND);
     }
 }
 
