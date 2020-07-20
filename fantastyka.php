@@ -13,6 +13,7 @@
 $path = "/tmp";
 $set = 1; //1 = biblioteka, 2 = poczekalnia (bez tekstów w bibliotece), 3 = archiwum (bez tekstów w bibliotece)
         //4 = kolejka (wymaga parametrów logowania; niesprawdzone)
+        //5 = konkurs (wymaga ID konkursu)
 $log = false;
 $allPages = true;
 $allowResume = true; // when true, doesn't download pages when they exist on disk (we check for .xhtml only)
@@ -24,6 +25,7 @@ $downloadImages = false; // valid only when $downloadArticles = true; when false
 $startPage = 1; // used when $allPages = false
 $endPage = 39; // used when $allPages = false
 $downloadOnlyFew = false; // download only 5 articles when $downloadArticles=true; useful for script testing
+$konkursID = 165;
 
 // -------------------------
 
@@ -102,6 +104,8 @@ if ($set == 1) {
     )
     );
     $context = stream_context_create($options);
+} else if ($set == 5) {
+    $word = "konkurs";
 } else {
     echo("Unknown set!\n");
     exit;
@@ -320,6 +324,8 @@ while (true) {
             //wild guess
             $f=file_get_contents("https://www.fantastyka.pl/opowiadania/wszystkie/w/w/$word/0/d/$pagenum", false, $context);
         }
+    } else if ($set == 5) {
+        $f=file_get_contents("https://www.fantastyka.pl/opowiadania/konkursy/$konkursID", false, $context);        
     } else {
         if ($pagenum==1) {
             $f=file_get_contents("https://www.fantastyka.pl/opowiadania/$word");
@@ -412,6 +418,8 @@ while (true) {
         }
     }
     if ($downloadOnlyFew && $num==5) { break;
+    }
+    if ($set==5) { break;
     }
 
     if ($allPages) {
