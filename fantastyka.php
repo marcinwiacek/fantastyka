@@ -11,7 +11,8 @@
 
 // ------ CONFIG -----------
 $path = "/tmp";
-$set = 1; //1 = biblioteka, 2 = poczekalnia (bez tekstów w bibliotece), 3 = archiwum (bez tekstów w bibliotece)
+$set = 1; //1 = biblioteka, 2 = poczekalnia (bez tekstów w bibliotece)
+        //3 = archiwum (bez tekstów w bibliotece)
         //4 = kolejka (wymaga parametrów logowania; niesprawdzone)
         //5 = konkurs (wymaga ID konkursu)
 $log = false;
@@ -153,7 +154,25 @@ function addAuthorInfo($author, $authorID, $articleID, $articleName)
     file_put_contents("$path/OEBPS/authors/$authorID.xhtml", "<li><a href=\"../$articleID.xhtml\">$articleName</a></li>\n", FILE_APPEND);
 }
 
-function processArticle($id,$title,$num, $author0, $authorID0)
+function addKonkursInfo($konkurs, $konkursID, $articleID, $articleName)
+{
+    global $path;
+
+    if (!file_exists("$path/OEBPS/konkurs/$konkursID.xhtml")) {
+        $txt="<?xml version=\"1.0\" encoding=\"UTF-8\"?>".
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n".
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n".
+        "xmlns:epub=\"http://www.idpf.org/2007/ops\"\n".
+        "xml:lang=\"pl\" lang=\"pl\">\n".
+        "<head>\n".
+        "<link rel=\"stylesheet\" href=\"../style.css\" type=\"text/css\" />\n".
+        "<meta charset=\"utf-8\" /></head><body xml:lang=\"pl\" lang=\"pl\"><h1>Konkurs $konkurs</h1><ul>\n";
+        file_put_contents("$path/OEBPS/konkurs/$konkursID.xhtml", $txt);
+    }
+    file_put_contents("$path/OEBPS/konkurs/$konkursID.xhtml", "<li><a href=\"../$articleID.xhtml\">$articleName</a></li>\n", FILE_APPEND);
+}
+
+function processArticle($id,$title,$num, $author0, $authorID0, $konkurs, $konkursID)
 {
     global $path, $downloadImages, $tocContentOpf1, $allowResume, $log, $set, $context;
 
@@ -165,6 +184,19 @@ function processArticle($id,$title,$num, $author0, $authorID0)
                 "<body xml:lang=\"pl\" lang=\"pl\">\nAutor: <a href=\"authors/$authorID0.xhtml\">$author0</a><br />", $f
             );
             file_put_contents("$path/OEBPS/$id.xhtml", $f);
+        }
+        if ($konkurs != "") {
+            $tagi = strstr($f, "\nTagi: ");
+            $tagi = strstr($tagi, "<br />", true);
+            if (stristr($tagi, " $konkurs")) {
+                $tagi2 = str_ireplace(
+                    " $konkurs",
+                    " <a href=\"konkurs/$konkursID.xhtml\">$konkurs</a>", $tagi
+                );
+                $f = str_replace($tagi, $tagi2, $f);
+
+                file_put_contents("$path/OEBPS/$id.xhtml", $f);
+            }
         }
         return;
     }
@@ -228,6 +260,12 @@ function processArticle($id,$title,$num, $author0, $authorID0)
     if ($tags!="") { $tags="Tagi: $tags<br>\n";
     }
     $tags = str_replace("&", "&amp;", $tags);
+    if ($konkurs != "") {
+        $tags = str_ireplace(
+            " $konkurs",
+            " <a href=\"konkurs/$konkursID.xhtml\">$konkurs</a>", $tags
+        );
+    }
     if ($log) { file_put_contents("$path/log", "after tags\n", FILE_APPEND);
     }
 
@@ -311,6 +349,8 @@ mkdir("$path/OEBPS", 0700);
 mkdir("$path/META-INF", 0700);
 exec("rm -r $path/OEBPS/authors");
 mkdir("$path/OEBPS/authors", 0700);
+exec("rm -r $path/OEBPS/konkurs");
+mkdir("$path/OEBPS/konkurs", 0700);
 
 $num=1;
 $pagenum=$startPage;
@@ -365,9 +405,9 @@ while (true) {
             if ($log) {            file_put_contents("$path/log", "id is $id\n", FILE_APPEND);
             }
 
-            if ($set == 3) {
+            //            if ($set == 3) {
                 $params = strstr($f2, "<div class=\"clear linia\"></div>", true);
-            }
+            //            }
 
             $f2 = findNext($f2, ">");
             if ($id == "56842934") {
@@ -379,6 +419,21 @@ while (true) {
 
             addAuthorInfo($user, $userId, $id, $title);
 
+            if (strstr($params, "<a class=\"konkurs\" href=\"/opowiadania/konkursy/")) {
+                $konkursID = findNext($params, "<a class=\"konkurs\" href=\"/opowiadania/konkursy/");
+                $konkursID = strstr($konkursID, "\"", true);
+        
+                $konkurs = findNext($params, "<a class=\"konkurs\" href=\"/opowiadania/konkursy/");
+                $konkurs = findNext($konkurs, ">");
+                $konkurs = strstr($konkurs, "</a>", true);
+                //                echo " konkurs '$konkurs' ";
+
+                addKonkursInfo($konkurs, $konkursID, $id, $title);
+            } else{
+                $konkurs ="";
+                $konkursID ="";
+            }
+
             echo " autor '$user' title ".$title."\n";
             if ($log) {            file_put_contents("$path/log", "title is $title\n", FILE_APPEND);
             }
@@ -388,7 +443,7 @@ while (true) {
                 if ($log) {            file_put_contents("$path/log", "library\n", FILE_APPEND);
                 }
             } else {
-                if ($downloadArticles) { processArticle($id, $title, $num, $user, $userId);
+                if ($downloadArticles) { processArticle($id, $title, $num, $user, $userId, $konkurs, $konkursID);
                 }
 
                 $tocContentOpf1=$tocContentOpf1."<item id=\"".$id."_xhtml\" media-type=\"application/xhtml+xml\" href=\"$id.xhtml\" />\n";
@@ -500,6 +555,14 @@ foreach (scandir("$path/OEBPS/authors") as $key => $filename) {
         $tocContentOpf2=$tocContentOpf2."<itemref idref=\"author_".$filename."\"/>\n";
     }
 }
+foreach (scandir("$path/OEBPS/konkurs") as $key => $filename) {
+    if (!in_array($filename, array(".","..")) && !is_dir("$path/OEBPS/konkurs/$filename")
+        && strstr($filename, ".xhtml")
+    ) {
+        $tocContentOpf1=$tocContentOpf1."<item id=\"konkurs_".$filename."\" media-type=\"application/xhtml+xml\" href=\"konkurs/$filename\" />\n";
+        $tocContentOpf2=$tocContentOpf2."<itemref idref=\"konkurs_".$filename."\"/>\n";
+    }
+}
 
 $txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
     "<package xmlns=\"http://www.idpf.org/2007/opf\"\n".
@@ -568,9 +631,19 @@ if ($allowResume) {
             && strstr($filename, ".xhtml") && $filename!="cover-page.xhtml" && $filename!="toc.xhtml"
         ) {
             if (!strstr($tocContentOpf1, "media-type=\"application/xhtml+xml\" href=\"$filename\" />")) {
-                echo "$filename is not mentioned in index, removing!\n";
+                echo "$filename is not mentioned in index!\n";
                 //                exec("rm $path/OEBPS/$filename");
             }
+        }
+    }
+}
+foreach (scandir("$path/OEBPS") as $key => $filename) {
+    if (!in_array($filename, array(".","..")) && !is_dir("$path/OEBPS/$filename")
+        && strstr($filename, ".xhtml") && $filename!="cover-page.xhtml" && $filename!="toc.xhtml"
+    ) {
+        if ($set == 2 && file_exists("$path/../biblioteka/OEBPS/$filename")) {
+                echo "$filename is in biblioteka, removing!\n";
+                exec("rm $path/OEBPS/$filename");
         }
     }
 }
@@ -580,6 +653,13 @@ foreach (scandir("$path/OEBPS/authors") as $key => $filename) {
         && strstr($filename, ".xhtml")
     ) {
         file_put_contents("$path/OEBPS/authors/$filename", "</ul></body></html>", FILE_APPEND);
+    }
+}
+foreach (scandir("$path/OEBPS/konkurs") as $key => $filename) {
+    if (!in_array($filename, array(".","..")) && !is_dir("$path/OEBPS/konkurs/$filename")
+        && strstr($filename, ".xhtml")
+    ) {
+        file_put_contents("$path/OEBPS/konkurs/$filename", "</ul></body></html>", FILE_APPEND);
     }
 }
 
