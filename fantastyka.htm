@@ -1,0 +1,712 @@
+<html>
+
+<!-- (c) Marcin Wiącek marcin@mwiacek.com 08.2020 -->
+
+<head>
+    <title>Skrypt do tworzenia plików EPUB ze stron fantastyka.pl (c) Marcin Wiącek marcin@mwiacek.com 08.2020</title>
+    <meta charset="utf-8">
+    <script src=lib/jszip.min.js></script>
+    <script src=lib/FileSaver.min.js></script>
+</head>
+
+<body>
+
+Proszę wybrać rodzaj:
+<select id=set name=set>
+  <option value=1>Biblioteka</option>
+  <option value=2>Poczekalnia</option>
+  <option value=3>Archiwum</option>
+</select>
+<p>
+(opcjonalnie) Proszę wybrać poprzedni plik (teksty w nim obecne nie będą ponownie czytane): <input type="file" id="file" name="file" /><p>
+<input disabled=true type="checkbox" id="usun" name="usun" value="1"><label style='color:grey;' for="usun" id=usuninfo>Proszę usunąć z pliku teksty, których już nie ma stronie (bez zaznaczenia teksty będą w pliku, ale nie w indeksie)</label><p>
+
+<button type=button id=start>Start</button><p>
+
+    <progress style="visibility: hidden" id=progress value=0 max=100></progress><p>
+
+    <div id=log>&nbsp;</div>
+
+<script>
+var techlog = false;
+
+var fileset = -1;
+var set = 1;
+var num = 1;
+var pagenum = 1;
+var tocContentOpf1 = "";
+var tocContentOpf2 = "";
+var tocContentOpf3 = "";
+var tocTocNCX = "";
+var tocTocXHTML = "";
+var authorArray = [];
+var konkursArray = [];
+var needupdate = 0;
+var needupdatemax = 0;
+var word = "";
+
+var zip = new JSZip();
+var oebps_folder = zip.folder("OEBPS");
+var metainf_folder = zip.folder("META-INF");
+var authors_folder = oebps_folder.folder("authors");
+var konkurs_folder = oebps_folder.folder("konkurs");
+
+document.getElementById("file").value = "";
+
+function findNext(txt, start) {
+    var f10 = txt.indexOf(start);
+    if (f10 == -1) return "";
+    return txt.substr(f10 + start.length);
+}
+
+function findBetween(text, start, start2, end) {
+    var f10 = findNext(text, start);
+    if (start2 != "") f10 = findNext(f10, start2);
+    return f10.substr(f10, f10.indexOf(end));
+}
+
+function addToLog(newtxt) {
+    if (techlog) {
+        document.getElementById("log").innerHTML = newtxt + "<br>" +
+            document.getElementById("log").innerHTML;
+    }
+}
+
+function addAuthorInfo(author, authorID, articleID, articleName) {
+    if (!authorArray[authorID]) {
+        authorArray[authorID] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+            "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n" +
+            "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n" +
+            "xmlns:epub=\"http://www.idpf.org/2007/ops\"\n" +
+            "xml:lang=\"pl\" lang=\"pl\">\n" +
+            "<head>\n" +
+            "<link rel=\"stylesheet\" href=\"../style.css\" type=\"text/css\" />\n" +
+            "<meta charset=\"utf-8\" /></head><body xml:lang=\"pl\" lang=\"pl\"><h1>Autor " + author + "</h1><ul>\n";
+    }
+    authorArray[authorID] += "<li><a href=\"../" + articleID + ".xhtml\">" + articleName + "</a></li>\n";
+}
+
+function addKonkursInfo(konkurs, konkursID, articleID, articleName) {
+    if (!konkursArray[konkursID]) {
+        konkursArray[konkursID] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+            "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n" +
+            "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n" +
+            "xmlns:epub=\"http://www.idpf.org/2007/ops\"\n" +
+            "xml:lang=\"pl\" lang=\"pl\">\n" +
+            "<head>\n" +
+            "<link rel=\"stylesheet\" href=\"../style.css\" type=\"text/css\" />\n" +
+            "<meta charset=\"utf-8\" /></head><body xml:lang=\"pl\" lang=\"pl\"><h1>Konkurs " + konkurs + "</h1><ul>\n";
+    }
+    konkursArray[konkursID] += "<li><a href=\"../" + articleID + ".xhtml\">" + articleName + "</a></li>\n";
+}
+
+function processArticle(f, id, konkurs, konkursID) {
+    var descriptionOrHr = "<hr>" + findBetween(f, '<div class="clear linia" style="margin-top: 1px;"></div>', "", "</div>").trim();
+    if (descriptionOrHr != "<hr>") descriptionOrHr = descriptionOrHr + "<hr>";
+    addToLog("description " + descriptionOrHr);
+
+    var author = findBetween(
+        f, '<p class="naglowek-kom"><a class="login" href="/profil/', ">", "<");
+    author = author.replace(/&/g, "&amp;");
+    addToLog("cos author " + author);
+
+    authorID = findBetween(f, '<p class="naglowek-kom"><a class="login" href="/profil/', "", '"');
+    addToLog("cos authorID " + authorID);
+
+    info = findBetween(f, '<p class="data">', "", "<");
+    addToLog("cos info " + info);
+
+    tags = "";
+    f2 = f;
+    while (true) {
+        t = ' class="znajomy">';
+        if (f2.indexOf(t) != -1) {
+            f2 = findNext(f2, t);
+            tags = tags + ", " + f2.substr(0, f2.indexOf("</")).trim();
+            continue;
+        }
+        break;
+    }
+    f2 = f;
+    while (true) {
+        t = ' class="redakcja">';
+        if (f2.indexOf(t) != -1) {
+            f2 = findNext(f2, t);
+            tags = tags + ", " + f2.substr(0, f2.indexOf("</")).trim();
+            continue;
+        }
+        break;
+    }
+    f2 = f;
+    while (true) {
+        t = '<a href="/opowiadania/tag/s/';
+        if (f2.indexOf(t) != -1) {
+            f2 = findNext(f2, t);
+            f2 = findNext(f2, ">");
+            tags = tags + ", " + f2.substr(0, f2.indexOf("</a>")).trim();
+            continue;
+        }
+        break;
+    }
+    if (f.indexOf('<img src="/images/srebro.png" class="piorko" />') != -1) {
+        tags = tags + ", <b>Srebrne PIÓRKO</b>";
+    }
+    if (f.indexOf('<img src="/images/zloto.png" class="piorko" />') != -1) {
+        tags = tags + ", <b>ZŁOTE PIÓRKO</b>";
+    }
+    if (konkurs != "") {
+        tags = tags.replace(new RegExp(" " + konkurs, 'gi'),
+            " <a href=\"konkurs/" + konkursID + ".xhtml\">" + konkurs + "</a>"
+        );
+    }
+    if (tags != "") tags = "Tagi: " + tags + "<br>\n";
+    tags = tags.replace(/&/g, "&amp;");
+
+    txt = findBetween(
+        f, '<section class="opko no-headline">', "<article>", "</article>"
+    );
+
+    txt = txt.replace(/<img (.*?) \/>/g, " <a \\1>Obrazek</a> ");
+    txt = txt.replace(/src=\"(.*?)\"/g, "href=\"\\1\"");
+
+    txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n" +
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n" +
+        "xmlns:epub=\"http://www.idpf.org/2007/ops\"\n" +
+        "xml:lang=\"pl\" lang=\"pl\">\n" +
+        "<head>\n" +
+        "<title>" + title + "</title>\n" +
+        "<link rel=\"stylesheet\" href=\"style.css\" type=\"text/css\" />\n" +
+        "</head>\n" +
+        "<body xml:lang=\"pl\" lang=\"pl\">\n" +
+        "Autor: <a href=\"authors/" + authorID + ".xhtml\">" + author + "</a><br>\n" +
+        tags +
+        "Info: " + info + "\n" +
+        descriptionOrHr + "\n" +
+        txt.trim() +
+        "\n" +
+        "</body>\n</html>";
+
+    txt = txt.replace(/<br>/g, "<br />");
+    txt = txt.replace(/<hr>/g, "<hr />");
+
+    /*txt = txt.replace(/<p(.*?)>/g, "<p\\1 />");*/
+    txt = txt.replace(/<p>/g, "<p />");
+
+    txt = txt.replace(/<\/p>/g, "");
+    txt = txt.replace(/<p \/>&nbsp; <p \/>/g, "<p />");
+    txt = txt.replace(/<p \/><p \/>/g, "<p />");
+    txt = txt.replace(/<p \/><p \/>/g, "<p />");
+    txt = txt.replace(/<br \/><br \/>/g, "<br />");
+    txt = txt.replace(/<hr \/><p \/>/g, "<hr />");
+    txt = txt.replace(/&nbsp;/g, " ");
+    txt = txt.replace(/\t\t/g, "\t");
+    txt = txt.replace(/  /g, " ");
+    txt = txt.replace(/ <p /g, "<p ");
+    txt = txt.replace(/<p \/> <hr \/>/g, "<hr />");
+    txt = txt.replace(/&oacute;/g, "ó");
+    txt = txt.replace(/\n\t<span class="koniec">Koniec<\/span>/g, "");
+    txt = txt.replace(/Tagi: , /g, "Tagi: ");
+
+    oebps_folder.file(id + ".xhtml", txt);
+}
+
+function updateArticle(id, user, userID, konkurs, konkursID) {
+    needupdate++;
+    oebps_folder.file(id + '.xhtml').async("string").then(function(data) {
+        data2 = data;
+        replace = false;
+        if (data2.indexOf("<body xml:lang=\"pl\" lang=\"pl\">\nAutor: " + user + "<br />") != -1) {
+            data2 = data2.replace(
+                "<body xml:lang=\"pl\" lang=\"pl\">\nAutor: " + user + "<br />",
+                "<body xml:lang=\"pl\" lang=\"pl\">\nAutor: <a href=\"authors/" + userID + ".xhtml\">" + user + "</a><br />"
+            );
+            replace = true;
+        }
+        if (konkurs != "") {
+            tagi = data2.substr(data2.indexOf("\nTagi: "));
+            tagi = tagi.substr(1, tagi.indexOf("<br />"));
+            if (tagi.toLowerCase().indexOf(konkurs.toLowerCase()) > 0) {
+                tagi2 = tagi.replace(new RegExp(" " + konkurs, 'gi'),
+                    " <a href=\"konkurs/" + konkursID + ".xhtml\">" + konkurs + "</a>"
+                );
+                data2 = data2.replace(tagi, tagi2);
+                replace = true;
+            }
+        }
+        if (replace) {
+            oebps_folder.file(id + ".xhtml", data2);
+//            document.getElementById("log").innerHTML =
+//                "Replacing " + id + "<br>" +
+//                document.getElementById("log").innerHTML;
+        }
+        needupdate--;
+        if (needupdatemax > 0) {
+            document.getElementById("progress").value = needupdatemax - needupdate;
+        }
+    });
+}
+
+function processPageList(content) {
+    var f2 = content;
+    while (true) {
+        var t = '<div class="autor"><a href="/profil/';
+        if (f2.indexOf(t) == -1) break;
+
+//        document.getElementById("log").innerHTML = "Strona: " + pagenum + " (tekst " + num + ")" + "<br>" +
+//            document.getElementById("log").innerHTML;
+
+        document.title = "Strona " + pagenum + " (tekst " + num + ")";
+
+        f2 = findNext(f2, t);
+        var userId = f2.substr(0, f2.indexOf('"'));
+        addToLog("user id is " + userId);
+        user = findBetween(f2, '">', "", ":</a>");
+        user = user.replace("&nbsp;", " ");
+        addToLog("user is " + user);
+
+        t = '><a href="/opowiadania/pokaz/';
+        if (f2.indexOf(t) == -1) break;
+        f2 = findNext(f2, t);
+        id = f2.substr(0, f2.indexOf('"'));
+
+        if (id != "10823" && id != "8313") {
+            addToLog("id is " + id);
+
+            params = f2.substr(0, f2.indexOf("<div class=\"clear linia\"></div>"));
+
+            f2 = findNext(f2, ">");
+            if (id == "56842934") {
+                title = "DZIEŃ (bez) PRĄDU! - Czuby Aka kontra Czterech Jeźdźców Apo Kalipsy";
+            } else {
+                title = f2.substr(0, f2.indexOf("<"));
+                title = title.replace(/(&(?!#|amp;))/g, "&amp;");
+            }
+
+            addToLog(" autor " + user + " title " + title);
+
+            addAuthorInfo(user, userId, id, title);
+
+            if (params.indexOf("<a class=\"konkurs\" href=\"/opowiadania/konkursy/") != -1) {
+                konkursID = findNext(params, '<a class="konkurs" href="/opowiadania/konkursy/');
+                konkursID = konkursID.substr(0, konkursID.indexOf("\""));
+
+                konkurs = findNext(params, '<a class="konkurs" href="/opowiadania/konkursy/');
+                konkurs = findNext(konkurs, ">");
+                konkurs = konkurs.substr(0, konkurs.indexOf("</a>"));
+//                document.getElementById("log").innerHTML = "konkurs '" + konkurs + "' " + konkursID +
+//                    document.getElementById("log").innerHTML;
+
+                addKonkursInfo(konkurs, konkursID, id, title);
+            } else {
+                konkurs = "";
+                konkursID = "";
+            }
+
+            if (set == 3 && params.indexOf("<div class=\"punkty\" title=\"opowiadanie w bibliotece\">OK<div>bib</div></div>") != -1) {
+                addToLog("  library");
+            } else {
+                if (zip.folder("OEBPS").file(new RegExp('^' + id + '.xhtml', '')).length == 0) {
+//                    document.getElementById("log").innerHTML = "czytanie '" + id + "'" +
+//                        document.getElementById("log").innerHTML;
+
+                    var url2 = "https://www.fantastyka.pl/opowiadania/pokaz/" + id;
+                    var http2 = new XMLHttpRequest();
+                    http2.open('GET', 'https://cors-anywhere.herokuapp.com/' + url2, false);
+                    http2.onprogress = function(e) {
+                        if (e.lengthComputable) {
+                            document.title = "Czytanie tekstu";
+                            document.getElementById("progress").style.visibility = "visible";
+                            document.getElementById("progress").max = e.total;
+                            document.getElementById("progress").value = e.loaded;
+                        }
+                    };
+                    http2.onload = function() {
+                        document.getElementById("progress").style.visibility = "hidden";
+                        if (http2.status != 200) {
+                            alert('error opek ' + http2.status + " " + http2.response);
+                            return;
+                        }
+
+                        processArticle(http2.response, id, konkurs, konkursID);
+                    };
+                    http2.onerror = function() {
+                        document.getElementById("progress").style.visibility = "hidden";
+                        alert('error');
+                    };
+                    http2.send();
+                } else {
+                    updateArticle(id, user, userId, konkurs, konkursID);
+                }
+
+                tocContentOpf1 = tocContentOpf1 + "<item id=\"" + id + "_xhtml\" media-type=\"application/xhtml+xml\" href=\"" + id + ".xhtml\" />\n";
+
+                tocContentOpf2 = tocContentOpf2 + "<itemref idref=\"" + id + "_xhtml\"/>\n";
+
+                if (tocContentOpf3 == "") {
+                    tocContentOpf3 = "<reference href=\"" + id + ".xhtml\" type=\"text\" title=\"Tekst\"/>\n";
+                }
+
+                tocTocNCX = tocTocNCX + "<navPoint id=\"index_" + num + "\" playOrder=\"" + num + "\">\n" +
+                    "<navLabel>\n" +
+                    "<text>$title</text>\n" +
+                    "</navLabel>\n" +
+                    "<content src=\"" + id + ".xhtml\"/>\n" +
+                    "</navPoint>\n";
+
+                tocTocXHTML = tocTocXHTML + "<li>\n" +
+                    "<a href=\"" + id + ".xhtml\">" + title + "</a>\n" +
+                    "</li>\n";
+
+                num++;
+            }
+        }
+    }
+    if (content.indexOf("/" + pagenum + "\" title=\"koniec\">") != -1 ||
+        content.indexOf(word + "/" + (pagenum - 1) + "/d\" title=\"koniec\">") != -1
+    ) return;
+
+    pagenum++;
+    getPageList();
+}
+
+function getPageList() {
+    if (set == 5) {
+        url = "https://www.fantastyka.pl/opowiadania/konkursy/" + konkursID;
+    } else {
+        if (pagenum == 1) {
+            url = "https://www.fantastyka.pl/opowiadania/" + word;
+        } else {
+            if (set == 3) {
+                url = "https://www.fantastyka.pl/opowiadania/" + word + "/d/" + pagenum;
+            } else {
+                url = "https://www.fantastyka.pl/opowiadania/" + word + "/w/w/w/0/d/" + pagenum;
+            }
+        }
+    }
+    document.title = "Strona: " + pagenum;
+    var http = new XMLHttpRequest();
+    //  http.open('GET', 'https://crossorigin.me/'+url, true);
+    http.open('GET', 'https://cors-anywhere.herokuapp.com/' + url, false);
+    http.onload = function() {
+        document.getElementById("progress").style.visibility = "hidden";
+        if (http.status != 200) {
+            alert(http.response);
+            return;
+        }
+        processPageList(http.response);
+    };
+    http.onprogress = function(e) {
+        if (e.lengthComputable) {
+            document.getElementById("progress").style.visibility = "visible";
+            document.getElementById("progress").max = e.total;
+            document.getElementById("progress").value = e.loaded;
+        }
+    };
+    http.onerror = function() {
+        document.getElementById("progress").style.visibility = "hidden";
+        alert('error');
+    };
+    http.send();
+}
+
+function zipIT() {
+    if (needupdate > 0) {
+        document.getElementById("progress").value = needupdatemax - needupdate;
+        setTimeout(zipIT, 1000);
+    } else {
+        document.getElementById("progress").style.visibility = "hidden";
+//        document.getElementById("log").innerHTML =
+//            "Zipping" +
+//            document.getElementById("log").innerHTML;
+        zip.generateAsync({
+            type: "blob",
+            compression: "DEFLATE",
+            compressionOptions: {
+                level: 9
+            }
+        }, function updateCallback(metadata) {
+            document.title = "Kompresja";
+            document.getElementById("progress").style.visibility = "visible";
+            document.getElementById("progress").max = 100;
+            document.getElementById("progress").value = metadata.percent;
+        }).then(function(content) {
+            document.getElementById("progress").style.visibility = "hidden";
+
+            var filenum = 0;
+            oebps_folder.forEach(function(relativePath, zipEntry) {
+                if (relativePath.indexOf('konkurs') == -1 &&
+                    relativePath.indexOf('authors') == -1) {
+                    filenum++;
+                }
+            });
+            document.getElementById("log").innerHTML =
+                document.getElementById("log").innerHTML +
+                "<br>Nowy plik: " + (num - 1) + " tekstów (z usuniętymi ze strony " + (filenum - 4) + ")";
+
+            document.title = "Gotowe!";
+
+            saveAs(content, word + ".epub");
+        });
+    }
+}
+
+document.getElementById("file").addEventListener("change",
+    function(evt) {
+
+        JSZip.loadAsync(evt.target.files[0])
+            .then(function(zip0) {
+                if (zip0.folder("OEBPS").file(new RegExp('cover1.jpg', '')).length == 1) {
+                    fileset = 1;
+                } else if (zip0.folder("OEBPS").file(new RegExp('cover2.jpg', '')).length == 1) {
+                    fileset = 2;
+                } else if (zip0.folder("OEBPS").file(new RegExp('cover3.jpg', '')).length == 1) {
+                    fileset = 3;
+                } else {
+                    alert('zly plik');
+                    return;
+                }
+                document.getElementById("usun").disabled = false;
+                document.getElementById("usuninfo").style = 'color:black';
+                document.getElementById("usun").checked = true;
+                zip = zip0;
+                metainf_folder = zip.folder("META-INF");
+                oebps_folder = zip.folder("OEBPS");
+                oebps_folder.remove("authors");
+                oebps_folder.remove("konkurs");
+                authors_folder = oebps_folder.folder("authors");
+                konkurs_folder = oebps_folder.folder("konkurs");
+                filenum = 0;
+                oebps_folder.forEach(function(relativePath, zipEntry) {
+                    filenum++;
+                });
+                document.getElementById("log").innerHTML = "Stary plik: " + (filenum - 6) + " tekstów";
+            }, function(e) {
+                alert('error');
+            });
+    });
+
+document.getElementById("start").addEventListener("click", function startIT() {
+    var e = document.getElementById("set");
+    var value = e.options[e.selectedIndex].value;
+
+    if (fileset != -1 && fileset != value) {
+        alert('Wczytany plik musi odpowiadać rodzajowi');
+        return;
+    }
+
+    document.getElementById("set").disabled = true;
+    document.getElementById("file").disabled = true;
+    document.getElementById("start").disabled = true;
+    document.getElementById("usun").disabled = true;
+
+    set = value;
+
+    if (set == 1) {
+       word = "biblioteka";
+    } else if (set == 2) {
+       word = "poczekalnia";
+    } else if (set == 3) {
+       word = "archiwum";
+    } else if (set == 5) {
+       word = "konkurs";
+    }
+
+    getPageList();
+
+    if (document.getElementById("usun").checked) {
+        oebps_folder.forEach(function(relativePath, zipEntry) {
+            if (relativePath.indexOf('konkurs') == -1 &&
+                relativePath.indexOf('authors') == -1 &&
+                relativePath.indexOf('.xhtml') != -1) {
+                if (tocContentOpf1.indexOf('media-type="application/xhtml+xml" href="' + relativePath + '" />') == -1) {
+                    oebps_folder.remove(relativePath);
+                }
+            }
+        });
+    }
+
+    var t = new Date().toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric'
+    }).split(' ').join('-');
+
+    for (index in authorArray) {
+        authors_folder.file(index + ".xhtml", authorArray[index] + "</ul></body></html>");
+    }
+    for (index in konkursArray) {
+        konkurs_folder.file(index + ".xhtml", konkursArray[index] + "</ul></body></html>");
+    }
+
+    zip.file("mimetype", "application/epub+zip");
+
+    txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n" +
+        "<rootfiles>\n" +
+        "<rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>\n" +
+        "</rootfiles>\n" +
+        "</container>";
+
+    metainf_folder.file("container.xml", txt);
+
+    oebps_folder.file("style.css", "body {text-align:justify}");
+
+    txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<ncx xmlns=\"http://www.daisy.org/z3986/2005/ncx/\"\n" +
+        "xmlns:py=\"http://genshi.edgewall.org/\"\n" +
+        "version=\"2005-1\"\n" +
+        "xml:lang=\"pl\">\n" +
+        "<head>\n" +
+        "<meta name=\"cover\" content=\"cover\"/>\n" +
+        "<meta name=\"dtb:uid\" content=\"urn:uuid:e5953946-ea06-4599-9a53-f5c652b89f5c\"/>\n" +
+        "<meta name=\"dtb:depth\" content=\"1\"/>\n" +
+        "<meta name=\"dtb:totalPageCount\" content=\"0\"/>\n" +
+        "<meta name=\"dtb:maxPageNumber\" content=\"0\"/>\n" +
+        "</head>\n" +
+        "<docTitle>\n" +
+        "<text>" + word[0].toUpperCase() + word.slice(1) + " z fantastyka.pl (" + t + ")</text>\n" +
+        "</docTitle>\n" +
+        "<navMap>\n" +
+        tocTocNCX +
+        "</navMap>\n" +
+        "</ncx>\n";
+
+    oebps_folder.file("toc.ncx", txt);
+
+    txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n" +
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n" +
+        "xmlns:epub=\"http://www.idpf.org/2007/ops\"\n" +
+        "xml:lang=\"pl\" lang=\"pl\">\n" +
+        "<head>\n" +
+        "<title>" + word[0].toUpperCase() + word.slice(1) + " z fantastyka.pl (" + t + ")</title>\n" +
+        "<link rel=\"stylesheet\" href=\"style.css\" type=\"text/css\" />\n" +
+        "</head>\n" +
+        "<body xml:lang=\"pl\" lang=\"pl\">\n" +
+        "<header>\n" +
+        "<h2>Spis treści</h2>\n" +
+        "</header>\n" +
+        "<nav epub:type=\"toc\">\n" +
+        "<ol>\n" +
+        tocTocXHTML +
+        "</ol>\n" +
+        "</nav>\n" +
+        "</body>\n" +
+        "</html>";
+
+    oebps_folder.file("toc.xhtml", txt);
+
+    authors_folder.forEach(function(relativePath, file) {
+        filename = relativePath.replace("OEBPS/authors/", "");
+        tocContentOpf1 = tocContentOpf1 +
+            "<item id=\"author_" + filename + "\" media-type=\"application/xhtml+xml\" href=\"authors/" + filename + "\" />\n";
+        tocContentOpf2 = tocContentOpf2 +
+            "<itemref idref=\"author_" + filename + "\"/>\n";
+    });
+
+    konkurs_folder.forEach(function(relativePath, file) {
+        filename = relativePath.replace("OEBPS/konkurs/", "");
+        tocContentOpf1 = tocContentOpf1 +
+            "<item id=\"konkurs_" + filename + "\" media-type=\"application/xhtml+xml\" href=\"konkurs/" + filename + "\" />\n";
+        tocContentOpf2 = tocContentOpf2 +
+            "<itemref idref=\"konkurs_" + filename + "\"/>\n";
+    });
+
+    txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<package xmlns=\"http://www.idpf.org/2007/opf\"\n" +
+        "xmlns:opf=\"http://www.idpf.org/2007/opf\"\n" +
+        "xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n" +
+        "unique-identifier=\"bookid\"\n" +
+        "version=\"3.0\"\n" +
+        "xml:lang=\"pl\">\n" +
+        "<metadata>\n" +
+        "<dc:identifier id=\"bookid\">urn:uuid:e5953946-ea06-4599-9a53-f5c652b89f5c</dc:identifier>\n" +
+        "<dc:language>pl-PL</dc:language>\n" +
+        "<meta name=\"generator\" content=\"Skrypt z mwiacek.com\"/>\n" +
+        "<dc:title>" + word[0].toUpperCase() + word.slice(1) + " z fantastyka.pl (" + t + ")</dc:title>\n" +
+        "<dc:description>\n" +
+        "Opowiadania z biblioteki z fantastyka.pl przetworzone skryptem z mwiacek.com. Wersja z dnia " + t + ".\n" +
+        "</dc:description>\n" +
+        "<dc:creator id=\"creator-0\">A.zbiorowy+skrypt z mwiacek.com</dc:creator>\n" +
+        "<meta refines=\"#creator-0\" property=\"role\" scheme=\"marc:relators\">aut</meta>\n" +
+        "<meta refines=\"#creator-0\" property=\"file-as\">A.zbiorowy+skrypt z mwiacek.com</meta>\n" +
+        "<meta name=\"cover\" content=\"cover\"></meta>\n" +
+        "<meta property=\"dcterms:modified\">" + (new Date().toISOString()) + "</meta>\n" +
+        "</metadata>\n" +
+        "<manifest>\n" +
+        "<item id=\"style_css\" media-type=\"text/css\" href=\"style.css\" />\n" +
+        "<item id=\"cover\" media-type=\"image/jpeg\" href=\"cover" + set + ".jpg\" properties=\"cover-image\" />\n" +
+        "<item id=\"cover-page_xhtml\" media-type=\"application/xhtml+xml\" href=\"cover-page.xhtml\" />\n" +
+        "<item id=\"toc_xhtml\" media-type=\"application/xhtml+xml\" href=\"toc.xhtml\" properties=\"nav\" />\n" +
+        tocContentOpf1 +
+        "<item id=\"ncxtoc\" media-type=\"application/x-dtbncx+xml\" href=\"toc.ncx\" />\n" +
+        "</manifest>\n" +
+        "<spine toc=\"ncxtoc\">\n" +
+        "<itemref idref=\"cover-page_xhtml\" linear=\"no\"/>\n" +
+        "<itemref idref=\"toc_xhtml\"/>\n" +
+        tocContentOpf2 +
+        "</spine>\n" +
+        "<guide>\n" +
+        "<reference href=\"cover-page.xhtml\" type=\"cover\" title=\"Strona okładki\"/>\n" +
+        "<reference href=\"toc.xhtml\" type=\"toc\" title=\"Spis treści\"/>\n" +
+        tocContentOpf3 +
+        "</guide>\n" +
+        "</package>";
+
+    oebps_folder.file("content.opf", txt);
+
+    txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<!DOCTYPE html>\n" +
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n" +
+        "xmlns:epub=\"http://www.idpf.org/2007/ops\"\n" +
+        "xml:lang=\"pl\" lang=\"pl\">\n" +
+        "<head>\n" +
+        "<title>" + word[0].toUpperCase() + word.slice(1) + " z fantastyka.pl (" + t + ")</title>\n" +
+        "<link rel=\"stylesheet\" href=\"style.css\" type=\"text/css\" />\n" +
+        "</head>\n" +
+        "<body xml:lang=\"pl\" lang=\"pl\">\n" +
+        "<div>\n" +
+        "<img src=\"cover" + set + ".jpg\"/>\n" +
+        "</div>\n" +
+        "</body>\n" +
+        "</html>";
+
+    oebps_folder.file("cover-page.xhtml", txt);
+
+    var http = new XMLHttpRequest();
+    http.open("GET", "https://raw.githubusercontent.com/marcinwiacek/fantastyka/master/cover" + set + ".jpg", true);
+    http.responseType = "blob";
+    http.onload = function(oEvent) {
+        document.getElementById("progress").style.visibility = "hidden";
+        if (http.status != 200) {
+            alert(http.response);
+            return;
+        }
+        oebps_folder.file("cover" + set + ".jpg", http.response);
+        document.title = "Uaktualnianie starych tekstów";
+        document.getElementById("progress").style.visibility = "visible";
+        document.getElementById("progress").max = needupdate;
+        document.getElementById("progress").value = 0;
+        needupdatemax = needupdate;
+        setTimeout(zipIT, 1000);
+    };
+    http.onprogress = function(e) {
+        if (e.lengthComputable) {
+            document.title = "Czytanie okładki";
+            document.getElementById("progress").style.visibility = "visible";
+            document.getElementById("progress").max = e.total;
+            document.getElementById("progress").value = e.loaded;
+        }
+    };
+    http.onerror = function() {
+        document.getElementById("progress").style.visibility = "hidden";
+        alert('error');
+    };
+    http.send();
+});
+
+</script>
+</body>
+
+</html>
