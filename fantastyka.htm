@@ -190,7 +190,6 @@ function processArticle(f, id, konkurs, konkursID) {
 
     /*txt = txt.replace(/<p(.*?)>/g, "<p\\1 />");*/
     txt = txt.replace(/<p>/g, "<p />");
-
     txt = txt.replace(/<\/p>/g, "");
     txt = txt.replace(/<p \/>&nbsp; <p \/>/g, "<p />");
     txt = txt.replace(/<p \/><p \/>/g, "<p />");
@@ -205,7 +204,6 @@ function processArticle(f, id, konkurs, konkursID) {
     txt = txt.replace(/&oacute;/g, "ó");
     txt = txt.replace(/\n\t<span class="koniec">Koniec<\/span>/g, "");
     txt = txt.replace(/Tagi: , /g, "Tagi: ");
-
     oebps_folder.file(id + ".xhtml", txt);
 }
 
@@ -255,14 +253,12 @@ function processPageList(content) {
 //            document.getElementById("log").innerHTML;
 
         document.title = "Strona " + pagenum + " (tekst " + num + ")";
-
         f2 = findNext(f2, t);
         var userId = f2.substr(0, f2.indexOf('"'));
         addToLog("user id is " + userId);
         user = findBetween(f2, '">', "", ":</a>");
         user = user.replace("&nbsp;", " ");
         addToLog("user is " + user);
-
         t = '><a href="/opowiadania/pokaz/';
         if (f2.indexOf(t) == -1) break;
         f2 = findNext(f2, t);
@@ -270,9 +266,7 @@ function processPageList(content) {
 
         if (id != "10823" && id != "8313") {
             addToLog("id is " + id);
-
             params = f2.substr(0, f2.indexOf("<div class=\"clear linia\"></div>"));
-
             f2 = findNext(f2, ">");
             if (id == "56842934") {
                 title = "DZIEŃ (bez) PRĄDU! - Czuby Aka kontra Czterech Jeźdźców Apo Kalipsy";
@@ -282,7 +276,6 @@ function processPageList(content) {
             }
 
             addToLog(" autor " + user + " title " + title);
-
             addAuthorInfo(user, userId, id, title);
 
             if (params.indexOf("<a class=\"konkurs\" href=\"/opowiadania/konkursy/") != -1) {
@@ -292,9 +285,8 @@ function processPageList(content) {
                 konkurs = findNext(params, '<a class="konkurs" href="/opowiadania/konkursy/');
                 konkurs = findNext(konkurs, ">");
                 konkurs = konkurs.substr(0, konkurs.indexOf("</a>"));
-//                document.getElementById("log").innerHTML = "konkurs '" + konkurs + "' " + konkursID +
-//                    document.getElementById("log").innerHTML;
-
+/*                document.getElementById("log").innerHTML = "konkurs '" + konkurs + "' " + konkursID +
+                    document.getElementById("log").innerHTML;*/
                 addKonkursInfo(konkurs, konkursID, id, title);
             } else {
                 konkurs = "";
