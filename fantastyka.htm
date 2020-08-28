@@ -317,7 +317,6 @@ function processPageList(content) {
                             alert('error opek ' + http2.status + " " + http2.response);
                             return;
                         }
-
                         processArticle(http2.response, id, konkurs, konkursID);
                     };
                     http2.onerror = function() {
@@ -330,32 +329,27 @@ function processPageList(content) {
                 }
 
                 tocContentOpf1 = tocContentOpf1 + "<item id=\"" + id + "_xhtml\" media-type=\"application/xhtml+xml\" href=\"" + id + ".xhtml\" />\n";
-
                 tocContentOpf2 = tocContentOpf2 + "<itemref idref=\"" + id + "_xhtml\"/>\n";
-
                 if (tocContentOpf3 == "") {
                     tocContentOpf3 = "<reference href=\"" + id + ".xhtml\" type=\"text\" title=\"Tekst\"/>\n";
                 }
-
                 tocTocNCX = tocTocNCX + "<navPoint id=\"index_" + num + "\" playOrder=\"" + num + "\">\n" +
                     "<navLabel>\n" +
                     "<text>$title</text>\n" +
                     "</navLabel>\n" +
                     "<content src=\"" + id + ".xhtml\"/>\n" +
                     "</navPoint>\n";
-
                 tocTocXHTML = tocTocXHTML + "<li>\n" +
                     "<a href=\"" + id + ".xhtml\">" + title + "</a>\n" +
                     "</li>\n";
-
                 num++;
             }
         }
     }
     if (content.indexOf("/" + pagenum + "\" title=\"koniec\">") != -1 ||
         content.indexOf(word + "/" + (pagenum - 1) + "/d\" title=\"koniec\">") != -1
-    ) return;
-
+    )
+    return;
     pagenum++;
     getPageList();
 }
@@ -406,10 +400,10 @@ function zipIT() {
         setTimeout(zipIT, 1000);
     } else {
         document.getElementById("progress").style.visibility = "hidden";
-//        document.getElementById("log").innerHTML =
-//            "Zipping" +
-//            document.getElementById("log").innerHTML;
-        zip.generateAsync({
+/*        document.getElementById("log").innerHTML =
+            "Zipping" */
+            document.getElementById("log").innerHTML;
+            zip.generateAsync({
             type: "blob",
             compression: "DEFLATE",
             compressionOptions: {
