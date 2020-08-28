@@ -29,7 +29,6 @@ Proszę wybrać rodzaj:
 
 <script>
 var techlog = false;
-
 var fileset = -1;
 var set = 1;
 var num = 1;
@@ -44,7 +43,6 @@ var konkursArray = [];
 var needupdate = 0;
 var needupdatemax = 0;
 var word = "";
-
 var zip = new JSZip();
 var oebps_folder = zip.folder("OEBPS");
 var metainf_folder = zip.folder("META-INF");
@@ -192,7 +190,6 @@ function processArticle(f, id, konkurs, konkursID) {
 
     /*txt = txt.replace(/<p(.*?)>/g, "<p\\1 />");*/
     txt = txt.replace(/<p>/g, "<p />");
-
     txt = txt.replace(/<\/p>/g, "");
     txt = txt.replace(/<p \/>&nbsp; <p \/>/g, "<p />");
     txt = txt.replace(/<p \/><p \/>/g, "<p />");
@@ -207,7 +204,6 @@ function processArticle(f, id, konkurs, konkursID) {
     txt = txt.replace(/&oacute;/g, "ó");
     txt = txt.replace(/\n\t<span class="koniec">Koniec<\/span>/g, "");
     txt = txt.replace(/Tagi: , /g, "Tagi: ");
-
     oebps_folder.file(id + ".xhtml", txt);
 }
 
@@ -257,14 +253,12 @@ function processPageList(content) {
 //            document.getElementById("log").innerHTML;
 
         document.title = "Strona " + pagenum + " (tekst " + num + ")";
-
         f2 = findNext(f2, t);
         var userId = f2.substr(0, f2.indexOf('"'));
         addToLog("user id is " + userId);
         user = findBetween(f2, '">', "", ":</a>");
         user = user.replace("&nbsp;", " ");
         addToLog("user is " + user);
-
         t = '><a href="/opowiadania/pokaz/';
         if (f2.indexOf(t) == -1) break;
         f2 = findNext(f2, t);
@@ -272,9 +266,7 @@ function processPageList(content) {
 
         if (id != "10823" && id != "8313") {
             addToLog("id is " + id);
-
             params = f2.substr(0, f2.indexOf("<div class=\"clear linia\"></div>"));
-
             f2 = findNext(f2, ">");
             if (id == "56842934") {
                 title = "DZIEŃ (bez) PRĄDU! - Czuby Aka kontra Czterech Jeźdźców Apo Kalipsy";
@@ -284,7 +276,6 @@ function processPageList(content) {
             }
 
             addToLog(" autor " + user + " title " + title);
-
             addAuthorInfo(user, userId, id, title);
 
             if (params.indexOf("<a class=\"konkurs\" href=\"/opowiadania/konkursy/") != -1) {
@@ -294,9 +285,8 @@ function processPageList(content) {
                 konkurs = findNext(params, '<a class="konkurs" href="/opowiadania/konkursy/');
                 konkurs = findNext(konkurs, ">");
                 konkurs = konkurs.substr(0, konkurs.indexOf("</a>"));
-//                document.getElementById("log").innerHTML = "konkurs '" + konkurs + "' " + konkursID +
-//                    document.getElementById("log").innerHTML;
-
+/*                document.getElementById("log").innerHTML = "konkurs '" + konkurs + "' " + konkursID +
+                    document.getElementById("log").innerHTML;*/
                 addKonkursInfo(konkurs, konkursID, id, title);
             } else {
                 konkurs = "";
@@ -307,8 +297,8 @@ function processPageList(content) {
                 addToLog("  library");
             } else {
                 if (zip.folder("OEBPS").file(new RegExp('^' + id + '.xhtml', '')).length == 0) {
-//                    document.getElementById("log").innerHTML = "czytanie '" + id + "'" +
-//                        document.getElementById("log").innerHTML;
+/*                    document.getElementById("log").innerHTML = "czytanie '" + id + "'" +
+                        document.getElementById("log").innerHTML;*/
 
                     var url2 = "https://www.fantastyka.pl/opowiadania/pokaz/" + id;
                     var http2 = new XMLHttpRequest();
@@ -327,7 +317,6 @@ function processPageList(content) {
                             alert('error opek ' + http2.status + " " + http2.response);
                             return;
                         }
-
                         processArticle(http2.response, id, konkurs, konkursID);
                     };
                     http2.onerror = function() {
@@ -340,32 +329,27 @@ function processPageList(content) {
                 }
 
                 tocContentOpf1 = tocContentOpf1 + "<item id=\"" + id + "_xhtml\" media-type=\"application/xhtml+xml\" href=\"" + id + ".xhtml\" />\n";
-
                 tocContentOpf2 = tocContentOpf2 + "<itemref idref=\"" + id + "_xhtml\"/>\n";
-
                 if (tocContentOpf3 == "") {
                     tocContentOpf3 = "<reference href=\"" + id + ".xhtml\" type=\"text\" title=\"Tekst\"/>\n";
                 }
-
                 tocTocNCX = tocTocNCX + "<navPoint id=\"index_" + num + "\" playOrder=\"" + num + "\">\n" +
                     "<navLabel>\n" +
                     "<text>$title</text>\n" +
                     "</navLabel>\n" +
                     "<content src=\"" + id + ".xhtml\"/>\n" +
                     "</navPoint>\n";
-
                 tocTocXHTML = tocTocXHTML + "<li>\n" +
                     "<a href=\"" + id + ".xhtml\">" + title + "</a>\n" +
                     "</li>\n";
-
                 num++;
             }
         }
     }
     if (content.indexOf("/" + pagenum + "\" title=\"koniec\">") != -1 ||
         content.indexOf(word + "/" + (pagenum - 1) + "/d\" title=\"koniec\">") != -1
-    ) return;
-
+    )
+    return;
     pagenum++;
     getPageList();
 }
@@ -416,10 +400,10 @@ function zipIT() {
         setTimeout(zipIT, 1000);
     } else {
         document.getElementById("progress").style.visibility = "hidden";
-//        document.getElementById("log").innerHTML =
-//            "Zipping" +
-//            document.getElementById("log").innerHTML;
-        zip.generateAsync({
+/*        document.getElementById("log").innerHTML =
+            "Zipping" */
+            document.getElementById("log").innerHTML;
+            zip.generateAsync({
             type: "blob",
             compression: "DEFLATE",
             compressionOptions: {
@@ -443,9 +427,7 @@ function zipIT() {
             document.getElementById("log").innerHTML =
                 document.getElementById("log").innerHTML +
                 "<br>Nowy plik: " + (num - 1) + " tekstów (z usuniętymi ze strony " + (filenum - 4) + ")";
-
             document.title = "Gotowe!";
-
             saveAs(content, word + ".epub");
         });
     }
@@ -489,17 +471,14 @@ document.getElementById("file").addEventListener("change",
 document.getElementById("start").addEventListener("click", function startIT() {
     var e = document.getElementById("set");
     var value = e.options[e.selectedIndex].value;
-
     if (fileset != -1 && fileset != value) {
         alert('Wczytany plik musi odpowiadać rodzajowi');
         return;
     }
-
     document.getElementById("set").disabled = true;
     document.getElementById("file").disabled = true;
     document.getElementById("start").disabled = true;
     document.getElementById("usun").disabled = true;
-
     set = value;
 
     if (set == 1) {
@@ -511,7 +490,6 @@ document.getElementById("start").addEventListener("click", function startIT() {
     } else if (set == 5) {
        word = "konkurs";
     }
-
     getPageList();
 
     if (document.getElementById("usun").checked) {
@@ -538,20 +516,15 @@ document.getElementById("start").addEventListener("click", function startIT() {
     for (index in konkursArray) {
         konkurs_folder.file(index + ".xhtml", konkursArray[index] + "</ul></body></html>");
     }
-
     zip.file("mimetype", "application/epub+zip");
-
     txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n" +
         "<rootfiles>\n" +
         "<rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>\n" +
         "</rootfiles>\n" +
         "</container>";
-
     metainf_folder.file("container.xml", txt);
-
     oebps_folder.file("style.css", "body {text-align:justify}");
-
     txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<ncx xmlns=\"http://www.daisy.org/z3986/2005/ncx/\"\n" +
         "xmlns:py=\"http://genshi.edgewall.org/\"\n" +
@@ -571,9 +544,7 @@ document.getElementById("start").addEventListener("click", function startIT() {
         tocTocNCX +
         "</navMap>\n" +
         "</ncx>\n";
-
     oebps_folder.file("toc.ncx", txt);
-
     txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n" +
         "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n" +
@@ -594,9 +565,7 @@ document.getElementById("start").addEventListener("click", function startIT() {
         "</nav>\n" +
         "</body>\n" +
         "</html>";
-
     oebps_folder.file("toc.xhtml", txt);
-
     authors_folder.forEach(function(relativePath, file) {
         filename = relativePath.replace("OEBPS/authors/", "");
         tocContentOpf1 = tocContentOpf1 +
@@ -653,9 +622,7 @@ document.getElementById("start").addEventListener("click", function startIT() {
         tocContentOpf3 +
         "</guide>\n" +
         "</package>";
-
     oebps_folder.file("content.opf", txt);
-
     txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<!DOCTYPE html>\n" +
         "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n" +
@@ -671,9 +638,7 @@ document.getElementById("start").addEventListener("click", function startIT() {
         "</div>\n" +
         "</body>\n" +
         "</html>";
-
     oebps_folder.file("cover-page.xhtml", txt);
-
     var http = new XMLHttpRequest();
     http.open("GET", "https://raw.githubusercontent.com/marcinwiacek/fantastyka/master/cover" + set + ".jpg", true);
     http.responseType = "blob";
@@ -708,5 +673,4 @@ document.getElementById("start").addEventListener("click", function startIT() {
 
 </script>
 </body>
-
 </html>
