@@ -4,9 +4,11 @@ Skrypt fantastyka.php pobiera pliki z fantastyka.pl
 i tworzy plik epub we wskazanym katalogu.
 
 Wymagany plik cover.jpg w aktualnym katalogu
-i komendy zip, cd i mv.
+oraz komendy zip, cd jak i mv.
 
-Uruchomienie: php fantastyka.php
+**Uruchomienie**
+
+`php fantastyka.php`
 
 # Konwerter 2
 
@@ -19,6 +21,8 @@ Skrypt fantastykapolska.php pobiera pliki EPUB z fatanstykapolska.pl
 i (prawie gotowe) łączy opowiadania w jeden plik.
 
 Wymagany plik cover.jpg w aktualnym katalogu
-i komendy zip, cd i mv.
+oraz komendy zip, cd jak i mv.
 
-Uruchomienie: php fantastykapolska.php
+**Uruchomienie**
+
+`php fantastykapolska.php`
