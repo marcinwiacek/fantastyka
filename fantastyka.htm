@@ -297,8 +297,8 @@ function processPageList(content) {
                 addToLog("  library");
             } else {
                 if (zip.folder("OEBPS").file(new RegExp('^' + id + '.xhtml', '')).length == 0) {
-//                    document.getElementById("log").innerHTML = "czytanie '" + id + "'" +
-//                        document.getElementById("log").innerHTML;
+/*                    document.getElementById("log").innerHTML = "czytanie '" + id + "'" +
+                        document.getElementById("log").innerHTML;*/
 
                     var url2 = "https://www.fantastyka.pl/opowiadania/pokaz/" + id;
                     var http2 = new XMLHttpRequest();
