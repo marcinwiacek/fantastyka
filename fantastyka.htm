@@ -427,9 +427,7 @@ function zipIT() {
             document.getElementById("log").innerHTML =
                 document.getElementById("log").innerHTML +
                 "<br>Nowy plik: " + (num - 1) + " tekstów (z usuniętymi ze strony " + (filenum - 4) + ")";
-
             document.title = "Gotowe!";
-
             saveAs(content, word + ".epub");
         });
     }
@@ -473,17 +471,14 @@ document.getElementById("file").addEventListener("change",
 document.getElementById("start").addEventListener("click", function startIT() {
     var e = document.getElementById("set");
     var value = e.options[e.selectedIndex].value;
-
     if (fileset != -1 && fileset != value) {
         alert('Wczytany plik musi odpowiadać rodzajowi');
         return;
     }
-
     document.getElementById("set").disabled = true;
     document.getElementById("file").disabled = true;
     document.getElementById("start").disabled = true;
     document.getElementById("usun").disabled = true;
-
     set = value;
 
     if (set == 1) {
@@ -495,7 +490,6 @@ document.getElementById("start").addEventListener("click", function startIT() {
     } else if (set == 5) {
        word = "konkurs";
     }
-
     getPageList();
 
     if (document.getElementById("usun").checked) {
@@ -522,20 +516,15 @@ document.getElementById("start").addEventListener("click", function startIT() {
     for (index in konkursArray) {
         konkurs_folder.file(index + ".xhtml", konkursArray[index] + "</ul></body></html>");
     }
-
     zip.file("mimetype", "application/epub+zip");
-
     txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n" +
         "<rootfiles>\n" +
         "<rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>\n" +
         "</rootfiles>\n" +
         "</container>";
-
     metainf_folder.file("container.xml", txt);
-
     oebps_folder.file("style.css", "body {text-align:justify}");
-
     txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<ncx xmlns=\"http://www.daisy.org/z3986/2005/ncx/\"\n" +
         "xmlns:py=\"http://genshi.edgewall.org/\"\n" +
@@ -555,9 +544,7 @@ document.getElementById("start").addEventListener("click", function startIT() {
         tocTocNCX +
         "</navMap>\n" +
         "</ncx>\n";
-
     oebps_folder.file("toc.ncx", txt);
-
     txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n" +
         "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n" +
@@ -578,9 +565,7 @@ document.getElementById("start").addEventListener("click", function startIT() {
         "</nav>\n" +
         "</body>\n" +
         "</html>";
-
     oebps_folder.file("toc.xhtml", txt);
-
     authors_folder.forEach(function(relativePath, file) {
         filename = relativePath.replace("OEBPS/authors/", "");
         tocContentOpf1 = tocContentOpf1 +
@@ -637,9 +622,7 @@ document.getElementById("start").addEventListener("click", function startIT() {
         tocContentOpf3 +
         "</guide>\n" +
         "</package>";
-
     oebps_folder.file("content.opf", txt);
-
     txt = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<!DOCTYPE html>\n" +
         "<html xmlns=\"http://www.w3.org/1999/xhtml\"\n" +
@@ -655,9 +638,7 @@ document.getElementById("start").addEventListener("click", function startIT() {
         "</div>\n" +
         "</body>\n" +
         "</html>";
-
     oebps_folder.file("cover-page.xhtml", txt);
-
     var http = new XMLHttpRequest();
     http.open("GET", "https://raw.githubusercontent.com/marcinwiacek/fantastyka/master/cover" + set + ".jpg", true);
     http.responseType = "blob";
@@ -692,5 +673,4 @@ document.getElementById("start").addEventListener("click", function startIT() {
 
 </script>
 </body>
-
 </html>
