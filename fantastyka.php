@@ -382,16 +382,25 @@ while (true) {
     }
     $f2 = $f;
     while (true) {
-        $t = "<div class=\"autor\"><a href=\"/profil/";
+        $t = "<div class=\"autor\"><a";
         if (!strstr($f2, $t)) { break;
         }
         $f2 = findNext($f2, $t);
-        $userId = strstr($f2, "\"", true);
-        if ($userNumber!="" && strcmp($userNumber, $userId)) { continue;
+        if (strpos($f2, '>Anonim:<') === 0) {
+            $userId = "0";
+            $user = "Anonim";
+        } else {
+                  $t = " href=\"/profil/";
+            if (!strstr($f2, $t)) { break;
+            }
+            $f2 = findNext($f2, $t);
+            $userId = strstr($f2, "\"", true);
+            if ($userNumber!="" && strcmp($userNumber, $userId)) { continue;
+            }
+            $user = findNext($f2, "\">");
+            $user = strstr($user, ":</a>", true);
+            $user = str_replace("&nbsp;", " ", $user);
         }
-        $user = findNext($f2, "\">");
-        $user = strstr($user, ":</a>", true);
-        $user = str_replace("&nbsp;", " ", $user);
 
         $t = "><a href=\"/opowiadania/pokaz/";
         if (!strstr($f2, $t)) { break;
