@@ -1,3 +1,10 @@
+Uwaga: obecnie dostępna jest darmowa aplikacja dla systemu
+Android, która również ma wspomniane funkcjonalności
+konwertera.
+
+Więcej: https://github.com/marcinwiacek/PoczytajMiTato (kod źródłowy)
+i https://play.google.com/store/apps/details?id=com.mwiacek.poczytaj.mi.tato&hl=pl (Google Play)
+
 # Konwerter 1
 
 Skrypt fantastyka.php pobiera pliki z fantastyka.pl
