@@ -1,4 +1,4 @@
-Uwaga: obecnie dostępna jest darmowa aplikacja dla systemu
+Uwaga (10.2022): obecnie dostępna jest darmowa aplikacja dla systemu
 Android, która również ma wspomniane funkcjonalności
 konwertera.
 
@@ -19,6 +19,9 @@ Uruchomienie: php fantastyka.php
 
 Skrypt fantastyka.htm pobiera pliki z fantastyka.pl
 i tworzy plik epub we wskazanym katalogu.
+
+Uwaga (10.2022): program nie jest rozwijany i jszip z katalogu src zawiera
+znane błędy w zabezpieczeniach.
 
 # Konwerter 3
 
